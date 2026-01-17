@@ -38,13 +38,13 @@ jobs:
           username: Amsatnaf
           # AQUI ESTAVA O ERRO (falta de chaves duplas)
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
-          # Correção aqui também
+          # ADICIONE ESTA LINHA ABAIXO:
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: |
             ghcr.io/amsatnaf/flask-ola-mundo:latest
