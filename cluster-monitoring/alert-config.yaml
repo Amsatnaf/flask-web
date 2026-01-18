@@ -3,7 +3,7 @@ kind: AlertmanagerConfig
 metadata:
   name: flask-email-config
   # MUDANÇA IMPORTANTE: Vamos jogar direto no sistema
-  namespace: cattle-monitoring-system
+  namespace: flask-prod 
   labels:
     release: rancher-monitoring
 spec:
