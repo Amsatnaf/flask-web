@@ -2,8 +2,7 @@ apiVersion: monitoring.coreos.com/v1alpha1
 kind: AlertmanagerConfig
 metadata:
   name: flask-email-config
-  # MUDANÇA IMPORTANTE: Vamos jogar direto no sistema
-  namespace: flask-prod 
+  namespace: flask-prod  # Correto: Onde o alerta nasce
   labels:
     release: rancher-monitoring
 spec:
@@ -20,12 +19,12 @@ spec:
   receivers:
   - name: 'email-me'
     emailConfigs:
-    - to: 'diego.amsatnaf@l@gmail.com'
-      from: 'diego.alme@hotmail.com'
+    - to: 'diego.amsatnaf@gmail.com'          # Destinatário (Você)
+      from: 'diego.amsatnaf@gmail.com'        # Remetente (Você)
       smarthost: 'smtp.gmail.com:587'
-      authUsername: 'diego.amsatnaf@l@gmail.com'
-      authIdentity: 'sdiego.amsatnaf@l@gmail.com'
+      authUsername: 'diego.amsatnaf@gmail.com' # Usuário do Login
+      authIdentity: 'diego.amsatnaf@gmail.com' # Identidade
       authPassword:
-        name: email-auth # Agora ele vai achar, pois ambos estão no cattle-monitoring-system
+        name: email-auth 
         key: password
       requireTLS: true
