@@ -18,6 +18,13 @@ spec:
         - name: flask-web
           image: ghcr.io/amsatnaf/flask-ola-mundo:8045dc8b7f0b7af30da099682011963e5db95360
           imagePullPolicy: Always
+          resources:
+            requests:
+              memory: "64Mi"  # Mínimo garantido pra subir
+              cpu: "100m"     # 10% de um núcleo (mili-cores)
+            limits:
+              memory: "256Mi" # Se passar disso, mata o pod (OOMKill)
+              cpu: "500m"     # Máximo que pode usar (50% de um núcleo)
           ports:
             - containerPort: 8080
           readinessProbe:
