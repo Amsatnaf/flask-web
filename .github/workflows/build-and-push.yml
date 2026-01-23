@@ -2,7 +2,7 @@ name: CI - Build & Push image (GHCR)
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, rolling, teste ]
     paths:
       - 'app/**'
       - 'Dockerfile'
@@ -37,16 +37,17 @@ jobs:
           registry: ghcr.io
           username: Amsatnaf
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          # MUDANÇA 1: Push se for main OU rolling
+          push: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/rolling') }}
           tags: |
-            ghcr.io/amsatnaf/flask-ola-mundo:latest
+            # MUDANÇA 2: A tag :latest só é gerada se for na main (PROTEÇÃO)
+            ${{ github.ref == 'refs/heads/main' && 'ghcr.io/amsatnaf/flask-ola-mundo:latest' || '' }}
             ghcr.io/amsatnaf/flask-ola-mundo:${{ github.sha }}
 
       - name: Update Kubernetes Manifest
