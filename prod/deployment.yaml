@@ -7,7 +7,7 @@ metadata:
     app: flask-web
 spec:
   replicas: 1
-  strategy:            # ← strategy vai AQUI, dentro de deployment.spec
+  strategy:
     type: RollingUpdate
     rollingUpdate:
       maxUnavailable: 0
@@ -19,6 +19,11 @@ spec:
     metadata:
       labels:
         app: flask-web
+      annotations: # ---------------------------------------------------------
+        # A MÁGICA ACONTECE AQUI:
+        # Dizemos para injetar o agente Python usando a config do namespace 'signoz'
+        instrumentation.opentelemetry.io/inject-python: "signoz/signoz-instrumentation"
+        # --------------------------------------------------------------------
     spec:
       containers:
         - name: flask-web
@@ -26,11 +31,11 @@ spec:
           imagePullPolicy: Always
           resources:
             requests:
-              memory: "64Mi"  # Mínimo garantido pra subir
-              cpu: "100m"     # 10% de um núcleo (mili-cores)
+              memory: "64Mi"
+              cpu: "100m"
             limits:
-              memory: "256Mi" # Se passar disso, mata o pod (OOMKill)
-              cpu: "500m"     # Máximo que pode usar (50% de um núcleo)
+              memory: "256Mi"
+              cpu: "500m"
           ports:
             - containerPort: 8080
           readinessProbe:
