@@ -2,6 +2,9 @@ from flask import Flask
 
 app = Flask(__name__)
 
+# ==============================================================================
+# CONFIGURAÇÃO RUM - MODO PRODUÇÃO (Separação de Load e Click)
+# ==============================================================================
 OTEL_RUM_CONFIG = """
 <script type="module">
   import { WebTracerProvider } from 'https://esm.sh/@opentelemetry/sdk-trace-web@1.30.1';
@@ -13,7 +16,7 @@ OTEL_RUM_CONFIG = """
   try {
       const resource = new Resource({
           [SemanticResourceAttributes.SERVICE_NAME]: 'flask-frontend-rum',
-          'deployment.type': 'manual_test', // Mudei o nome pra facilitar achar
+          'deployment.type': 'production_real',
           'env': 'production'
       });
 
@@ -22,41 +25,57 @@ OTEL_RUM_CONFIG = """
       
       const tracerProvider = new WebTracerProvider({ resource });
       tracerProvider.addSpanProcessor(new SimpleSpanProcessor(traceExporter));
-      tracerProvider.addSpanProcessor(new SimpleSpanProcessor(new ConsoleSpanExporter()));
+      // tracerProvider.addSpanProcessor(new SimpleSpanProcessor(new ConsoleSpanExporter())); // Pode comentar em prod
       tracerProvider.register();
 
       const tracer = tracerProvider.getTracer('flask-rum-cdn');
       
-      // Inicia o Trace
-      window.rootSpan = tracer.startSpan('sessao_usuario_manual', { 
-          startTime: performance.timeOrigin 
+      // -----------------------------------------------------------
+      // 1. TRACE DE CARREGAMENTO (PAGE LOAD)
+      // Esse aqui tem que ser RÁPIDO para seu alerta ficar verde.
+      // -----------------------------------------------------------
+      const loadSpan = tracer.startSpan('page_load', { startTime: performance.timeOrigin });
+
+      window.addEventListener('load', () => {
+          // Fecha o trace assim que a página termina de montar
+          setTimeout(() => {
+              loadSpan.end();
+              console.log("✅ Page Load enviado (Rápido!)");
+          }, 100); // 100ms de buffer é saudável
       });
 
-      console.log("🔴 GRAVANDO TRACE... Você tem 15 segundos para clicar nos botões!");
-
+      // -----------------------------------------------------------
+      // 2. TRACE DE INTERAÇÃO (CLIQUES)
+      // Criamos um NOVO span independente cada vez que o usuário clica.
+      // -----------------------------------------------------------
       window.logToSigNoz = (message, severity = 'INFO') => {
-          console.log(`🖱️ CLIQUE: "${message}"`);
+          console.log(`🖱️ Interação: "${message}"`);
 
-          // Adiciona o evento ao Trace que está aberto
-          window.rootSpan.addEvent(message, {
-              'log.severity': severity,
-              'user_action': 'click'
+          // Cria um Trace NOVO e RÁPIDO só para esse clique
+          const interactionSpan = tracer.startSpan('user_interaction', {
+              attributes: {
+                  'component': 'button',
+                  'action': message
+              }
           });
+
+          // Adiciona o evento (Log)
+          interactionSpan.addEvent(message, { 'log.severity': severity });
           
           if (severity === 'ERROR') {
-              window.rootSpan.setStatus({ code: 2, message: "Usuário reportou erro" });
-              alert("Erro registrado! O Trace deve ficar VERMELHO no SigNoz.");
-          } else {
-              alert("Evento Info registrado!");
+              interactionSpan.setStatus({ code: 2, message: "Erro no clique" });
           }
+
+          // Fecha imediatamente (Latência do clique será baixíssima)
+          interactionSpan.end(); 
       };
 
-      // O GRANDE SEGREDO: Esperar 15 segundos antes de enviar
-      setTimeout(() => {
-          window.rootSpan.end();
-          console.log("✅ FIM DA GRAVAÇÃO. Trace enviado para o SigNoz.");
-          alert("Sessão finalizada! Agora vá olhar o SigNoz.");
-      }, 15000); // 15 Segundos
+      // Captura erros globais também como traces separados
+      window.addEventListener('error', (e) => {
+          const errorSpan = tracer.startSpan('js_error');
+          errorSpan.setStatus({ code: 2, message: e.message });
+          errorSpan.end();
+      });
 
   } catch (e) {
       console.error("Erro RUM:", e);
@@ -71,26 +90,31 @@ def hello():
     <html lang="pt-br">
     <head>
         <meta charset="UTF-8">
-        <title>Teste Manual RUM</title>
+        <title>RUM - Produção</title>
         {OTEL_RUM_CONFIG}
         <style>
-            body {{ font-family: sans-serif; text-align: center; padding: 50px; }}
-            .btn {{ padding: 15px 30px; font-size: 18px; margin: 10px; cursor: pointer; }}
-            .btn-info {{ background: #2196F3; color: white; border: none; }}
-            .btn-error {{ background: #f44336; color: white; border: none; }}
+            body {{ font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; background-color: #eef2f5; margin: 0; }}
+            .card {{ background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); text-align: center; max-width: 450px; width: 100%; }}
+            .btn {{ padding: 12px 24px; margin: 10px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; }}
+            .btn-info {{ background-color: #0066cc; }}
+            .btn-error {{ background-color: #d93025; }}
+            p {{ color: #666; }}
         </style>
     </head>
     <body>
-        <h1>Teste de Eventos (15 Segundos) ⏱️</h1>
-        <p>A página está gravando. Clique nos botões abaixo antes do alerta final.</p>
-        
-        <button class="btn btn-info" onclick="window.logToSigNoz('Cliquei no Botão Azul', 'INFO')">
-            1. Registrar Info
-        </button>
+        <div class="card">
+            <h1>Site Rápido Novamente ⚡</h1>
+            <p>Latência de load normalizada (< 1s).</p>
+            <p>Cliques geram traces separados.</p>
+            
+            <button class="btn btn-info" onclick="window.logToSigNoz('Adicionar ao Carrinho', 'INFO')">
+                🛒 Comprar
+            </button>
 
-        <button class="btn btn-error" onclick="window.logToSigNoz('Falha no Pagamento', 'ERROR')">
-            2. Simular Erro
-        </button>
+            <button class="btn btn-error" onclick="window.logToSigNoz('Falha Checkout', 'ERROR')">
+                ❌ Erro
+            </button>
+        </div>
     </body>
     </html>
     """
