@@ -1,9 +1,8 @@
 import pytest
-from app.app import app # Importa seu app que está na pasta app/app.py
+from app.app import app
 
 @pytest.fixture
 def client():
-    # Cria um navegador falso para testar
     with app.test_client() as client:
         yield client
 
@@ -14,6 +13,5 @@ def test_home_page(client):
     # Verifica se deu sucesso (200)
     assert response.status_code == 200
 
-    # Verifica se o texto "Monitoramento RUM" está na resposta (que é o novo título)
-    # O 'b' antes das aspas significa bytes
-    assert b"Monitoramento RUM" in response.data
+    # CORREÇÃO: Agora procuramos o texto que está no novo app.py (CDN)
+    assert b"Monitoramento via Internet" in response.data
