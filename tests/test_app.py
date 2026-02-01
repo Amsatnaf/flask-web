@@ -25,7 +25,7 @@ def client():
 # Ela recebe o 'client' que criamos ali em cima.
 def test_home_page(client):
     """
-    Testa se a página carrega e se a versão v3.3.0 (Fix JS Hex->Bytes) está ativa.
+    Testa se a página carrega e se a versão baseada em Span Events está ativa.
     """
     # 1. Faz a requisição
     response = client.get('/')
@@ -33,15 +33,15 @@ def test_home_page(client):
     # 2. Verifica se o site está NO AR
     assert response.status_code == 200
 
-    # 3. Verifica se o TÍTULO VISUAL foi atualizado
-    # No app.py v3.3 colocamos: <h1>RUM v3.3: Hex -> Bytes 🛠️</h1>
-    assert b"RUM v3.3" in response.data
+    # 3. Verifica se o TÍTULO VISUAL mudou
+    # No novo app.py colocamos: <h1>RUM via Span Events 🎯</h1>
+    assert b"RUM via Span Events" in response.data
 
-    # 4. VERIFICAÇÃO TÉCNICA DE VERSÃO:
-    # Garante que a variável de versão foi atualizada
-    assert b"SERVICE_VERSION]: '3.3.0'" in response.data
+    # 4. VERIFICAÇÃO TÉCNICA (O Pulo do Gato):
+    # O teste antigo procurava por 'traceFlags'.
+    # O novo deve procurar pela função 'addEvent', que prova que mudamos a lógica.
+    assert b"window.rootSpan.addEvent" in response.data
 
-    # 5. VERIFICAÇÃO DA CORREÇÃO (NOVO):
-    # Verifica se a função 'hexToBytes' existe no código fonte da página.
-    # Isso garante que a lógica de conversão que adicionamos está lá.
-    assert b"function hexToBytes(hex)" in response.data
+    # 5. Verifica se NÃO estamos mais importando a lib de logs (limpeza de código)
+    # Garante que você removeu o peso morto do código antigo
+    assert b"OTLPLogExporter" not in response.data
