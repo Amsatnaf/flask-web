@@ -76,7 +76,7 @@
   var major = VERSION.split(".")[0];
   var GLOBAL_OPENTELEMETRY_API_KEY = /* @__PURE__ */ Symbol.for("opentelemetry.js.api." + major);
   var _global = _globalThis;
-  function registerGlobal(type, instance, diag3, allowOverride) {
+  function registerGlobal(type, instance, diag2, allowOverride) {
     var _a;
     if (allowOverride === void 0) {
       allowOverride = false;
@@ -86,16 +86,16 @@
     };
     if (!allowOverride && api[type]) {
       var err = new Error("@opentelemetry/api: Attempted duplicate registration of API: " + type);
-      diag3.error(err.stack || err.message);
+      diag2.error(err.stack || err.message);
       return false;
     }
     if (api.version !== VERSION) {
       var err = new Error("@opentelemetry/api: Registration of version v" + api.version + " for " + type + " does not match previously registered API v" + VERSION);
-      diag3.error(err.stack || err.message);
+      diag2.error(err.stack || err.message);
       return false;
     }
     api[type] = instance;
-    diag3.debug("@opentelemetry/api: Registered a global for " + type + " v" + VERSION + ".");
+    diag2.debug("@opentelemetry/api: Registered a global for " + type + " v" + VERSION + ".");
     return true;
   }
   function getGlobal(type) {
@@ -106,8 +106,8 @@
     }
     return (_b = _global[GLOBAL_OPENTELEMETRY_API_KEY]) === null || _b === void 0 ? void 0 : _b[type];
   }
-  function unregisterGlobal(type, diag3) {
-    diag3.debug("@opentelemetry/api: Unregistering a global for " + type + " v" + VERSION + ".");
+  function unregisterGlobal(type, diag2) {
+    diag2.debug("@opentelemetry/api: Unregistering a global for " + type + " v" + VERSION + ".");
     var api = _global[GLOBAL_OPENTELEMETRY_API_KEY];
     if (api) {
       delete api[type];
@@ -323,118 +323,6 @@
     })()
   );
 
-  // node_modules/@opentelemetry/api/build/esm/baggage/internal/baggage-impl.js
-  var __read3 = function(o, n) {
-    var m = typeof Symbol === "function" && o[Symbol.iterator];
-    if (!m) return o;
-    var i = m.call(o), r, ar = [], e;
-    try {
-      while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
-    } catch (error) {
-      e = { error };
-    } finally {
-      try {
-        if (r && !r.done && (m = i["return"])) m.call(i);
-      } finally {
-        if (e) throw e.error;
-      }
-    }
-    return ar;
-  };
-  var __values = function(o) {
-    var s = typeof Symbol === "function" && Symbol.iterator, m = s && o[s], i = 0;
-    if (m) return m.call(o);
-    if (o && typeof o.length === "number") return {
-      next: function() {
-        if (o && i >= o.length) o = void 0;
-        return { value: o && o[i++], done: !o };
-      }
-    };
-    throw new TypeError(s ? "Object is not iterable." : "Symbol.iterator is not defined.");
-  };
-  var BaggageImpl = (
-    /** @class */
-    (function() {
-      function BaggageImpl2(entries) {
-        this._entries = entries ? new Map(entries) : /* @__PURE__ */ new Map();
-      }
-      BaggageImpl2.prototype.getEntry = function(key) {
-        var entry = this._entries.get(key);
-        if (!entry) {
-          return void 0;
-        }
-        return Object.assign({}, entry);
-      };
-      BaggageImpl2.prototype.getAllEntries = function() {
-        return Array.from(this._entries.entries()).map(function(_a) {
-          var _b = __read3(_a, 2), k = _b[0], v = _b[1];
-          return [k, v];
-        });
-      };
-      BaggageImpl2.prototype.setEntry = function(key, entry) {
-        var newBaggage = new BaggageImpl2(this._entries);
-        newBaggage._entries.set(key, entry);
-        return newBaggage;
-      };
-      BaggageImpl2.prototype.removeEntry = function(key) {
-        var newBaggage = new BaggageImpl2(this._entries);
-        newBaggage._entries.delete(key);
-        return newBaggage;
-      };
-      BaggageImpl2.prototype.removeEntries = function() {
-        var e_1, _a;
-        var keys = [];
-        for (var _i = 0; _i < arguments.length; _i++) {
-          keys[_i] = arguments[_i];
-        }
-        var newBaggage = new BaggageImpl2(this._entries);
-        try {
-          for (var keys_1 = __values(keys), keys_1_1 = keys_1.next(); !keys_1_1.done; keys_1_1 = keys_1.next()) {
-            var key = keys_1_1.value;
-            newBaggage._entries.delete(key);
-          }
-        } catch (e_1_1) {
-          e_1 = { error: e_1_1 };
-        } finally {
-          try {
-            if (keys_1_1 && !keys_1_1.done && (_a = keys_1.return)) _a.call(keys_1);
-          } finally {
-            if (e_1) throw e_1.error;
-          }
-        }
-        return newBaggage;
-      };
-      BaggageImpl2.prototype.clear = function() {
-        return new BaggageImpl2();
-      };
-      return BaggageImpl2;
-    })()
-  );
-
-  // node_modules/@opentelemetry/api/build/esm/baggage/internal/symbol.js
-  var baggageEntryMetadataSymbol = /* @__PURE__ */ Symbol("BaggageEntryMetadata");
-
-  // node_modules/@opentelemetry/api/build/esm/baggage/utils.js
-  var diag = DiagAPI.instance();
-  function createBaggage(entries) {
-    if (entries === void 0) {
-      entries = {};
-    }
-    return new BaggageImpl(new Map(Object.entries(entries)));
-  }
-  function baggageEntryMetadataFromString(str) {
-    if (typeof str !== "string") {
-      diag.error("Cannot create baggage metadata from unknown type: " + typeof str);
-      str = "";
-    }
-    return {
-      __TYPE__: baggageEntryMetadataSymbol,
-      toString: function() {
-        return str;
-      }
-    };
-  }
-
   // node_modules/@opentelemetry/api/build/esm/context/context.js
   function createContextKey(description) {
     return Symbol.for(description);
@@ -464,32 +352,8 @@
   );
   var ROOT_CONTEXT = new BaseContext();
 
-  // node_modules/@opentelemetry/api/build/esm/propagation/TextMapPropagator.js
-  var defaultTextMapGetter = {
-    get: function(carrier, key) {
-      if (carrier == null) {
-        return void 0;
-      }
-      return carrier[key];
-    },
-    keys: function(carrier) {
-      if (carrier == null) {
-        return [];
-      }
-      return Object.keys(carrier);
-    }
-  };
-  var defaultTextMapSetter = {
-    set: function(carrier, key, value) {
-      if (carrier == null) {
-        return;
-      }
-      carrier[key] = value;
-    }
-  };
-
   // node_modules/@opentelemetry/api/build/esm/context/NoopContextManager.js
-  var __read4 = function(o, n) {
+  var __read3 = function(o, n) {
     var m = typeof Symbol === "function" && o[Symbol.iterator];
     if (!m) return o;
     var i = m.call(o), r, ar = [], e;
@@ -528,7 +392,7 @@
         for (var _i = 3; _i < arguments.length; _i++) {
           args[_i - 3] = arguments[_i];
         }
-        return fn.call.apply(fn, __spreadArray3([thisArg], __read4(args), false));
+        return fn.call.apply(fn, __spreadArray3([thisArg], __read3(args), false));
       };
       NoopContextManager2.prototype.bind = function(_context, target) {
         return target;
@@ -544,7 +408,7 @@
   );
 
   // node_modules/@opentelemetry/api/build/esm/api/context.js
-  var __read5 = function(o, n) {
+  var __read4 = function(o, n) {
     var m = typeof Symbol === "function" && o[Symbol.iterator];
     if (!m) return o;
     var i = m.call(o), r, ar = [], e;
@@ -595,7 +459,7 @@
         for (var _i = 3; _i < arguments.length; _i++) {
           args[_i - 3] = arguments[_i];
         }
-        return (_a = this._getContextManager()).with.apply(_a, __spreadArray4([context2, fn, thisArg], __read5(args), false));
+        return (_a = this._getContextManager()).with.apply(_a, __spreadArray4([context2, fn, thisArg], __read4(args), false));
       };
       ContextAPI2.prototype.bind = function(context2, target) {
         return this._getContextManager().bind(context2, target);
@@ -862,93 +726,10 @@
   var context = ContextAPI.getInstance();
 
   // node_modules/@opentelemetry/api/build/esm/diag-api.js
-  var diag2 = DiagAPI.instance();
-
-  // node_modules/@opentelemetry/api/build/esm/propagation/NoopTextMapPropagator.js
-  var NoopTextMapPropagator = (
-    /** @class */
-    (function() {
-      function NoopTextMapPropagator2() {
-      }
-      NoopTextMapPropagator2.prototype.inject = function(_context, _carrier) {
-      };
-      NoopTextMapPropagator2.prototype.extract = function(context2, _carrier) {
-        return context2;
-      };
-      NoopTextMapPropagator2.prototype.fields = function() {
-        return [];
-      };
-      return NoopTextMapPropagator2;
-    })()
-  );
-
-  // node_modules/@opentelemetry/api/build/esm/baggage/context-helpers.js
-  var BAGGAGE_KEY = createContextKey("OpenTelemetry Baggage Key");
-  function getBaggage(context2) {
-    return context2.getValue(BAGGAGE_KEY) || void 0;
-  }
-  function getActiveBaggage() {
-    return getBaggage(ContextAPI.getInstance().active());
-  }
-  function setBaggage(context2, baggage) {
-    return context2.setValue(BAGGAGE_KEY, baggage);
-  }
-  function deleteBaggage(context2) {
-    return context2.deleteValue(BAGGAGE_KEY);
-  }
-
-  // node_modules/@opentelemetry/api/build/esm/api/propagation.js
-  var API_NAME3 = "propagation";
-  var NOOP_TEXT_MAP_PROPAGATOR = new NoopTextMapPropagator();
-  var PropagationAPI = (
-    /** @class */
-    (function() {
-      function PropagationAPI2() {
-        this.createBaggage = createBaggage;
-        this.getBaggage = getBaggage;
-        this.getActiveBaggage = getActiveBaggage;
-        this.setBaggage = setBaggage;
-        this.deleteBaggage = deleteBaggage;
-      }
-      PropagationAPI2.getInstance = function() {
-        if (!this._instance) {
-          this._instance = new PropagationAPI2();
-        }
-        return this._instance;
-      };
-      PropagationAPI2.prototype.setGlobalPropagator = function(propagator) {
-        return registerGlobal(API_NAME3, propagator, DiagAPI.instance());
-      };
-      PropagationAPI2.prototype.inject = function(context2, carrier, setter) {
-        if (setter === void 0) {
-          setter = defaultTextMapSetter;
-        }
-        return this._getGlobalPropagator().inject(context2, carrier, setter);
-      };
-      PropagationAPI2.prototype.extract = function(context2, carrier, getter) {
-        if (getter === void 0) {
-          getter = defaultTextMapGetter;
-        }
-        return this._getGlobalPropagator().extract(context2, carrier, getter);
-      };
-      PropagationAPI2.prototype.fields = function() {
-        return this._getGlobalPropagator().fields();
-      };
-      PropagationAPI2.prototype.disable = function() {
-        unregisterGlobal(API_NAME3, DiagAPI.instance());
-      };
-      PropagationAPI2.prototype._getGlobalPropagator = function() {
-        return getGlobal(API_NAME3) || NOOP_TEXT_MAP_PROPAGATOR;
-      };
-      return PropagationAPI2;
-    })()
-  );
-
-  // node_modules/@opentelemetry/api/build/esm/propagation-api.js
-  var propagation = PropagationAPI.getInstance();
+  var diag = DiagAPI.instance();
 
   // node_modules/@opentelemetry/api/build/esm/api/trace.js
-  var API_NAME4 = "trace";
+  var API_NAME3 = "trace";
   var TraceAPI = (
     /** @class */
     (function() {
@@ -970,20 +751,20 @@
         return this._instance;
       };
       TraceAPI2.prototype.setGlobalTracerProvider = function(provider) {
-        var success = registerGlobal(API_NAME4, this._proxyTracerProvider, DiagAPI.instance());
+        var success = registerGlobal(API_NAME3, this._proxyTracerProvider, DiagAPI.instance());
         if (success) {
           this._proxyTracerProvider.setDelegate(provider);
         }
         return success;
       };
       TraceAPI2.prototype.getTracerProvider = function() {
-        return getGlobal(API_NAME4) || this._proxyTracerProvider;
+        return getGlobal(API_NAME3) || this._proxyTracerProvider;
       };
       TraceAPI2.prototype.getTracer = function(name, version) {
         return this.getTracerProvider().getTracer(name, version);
       };
       TraceAPI2.prototype.disable = function() {
-        unregisterGlobal(API_NAME4, DiagAPI.instance());
+        unregisterGlobal(API_NAME3, DiagAPI.instance());
         this._proxyTracerProvider = new ProxyTracerProvider();
       };
       return TraceAPI2;
@@ -1002,103 +783,6 @@
     return context2.getValue(SUPPRESS_TRACING_KEY) === true;
   }
 
-  // node_modules/@opentelemetry/core/build/esm/baggage/constants.js
-  var BAGGAGE_KEY_PAIR_SEPARATOR = "=";
-  var BAGGAGE_PROPERTIES_SEPARATOR = ";";
-  var BAGGAGE_ITEMS_SEPARATOR = ",";
-  var BAGGAGE_HEADER = "baggage";
-  var BAGGAGE_MAX_NAME_VALUE_PAIRS = 180;
-  var BAGGAGE_MAX_PER_NAME_VALUE_PAIRS = 4096;
-  var BAGGAGE_MAX_TOTAL_LENGTH = 8192;
-
-  // node_modules/@opentelemetry/core/build/esm/baggage/utils.js
-  function serializeKeyPairs(keyPairs) {
-    return keyPairs.reduce((hValue, current) => {
-      const value = `${hValue}${hValue !== "" ? BAGGAGE_ITEMS_SEPARATOR : ""}${current}`;
-      return value.length > BAGGAGE_MAX_TOTAL_LENGTH ? hValue : value;
-    }, "");
-  }
-  function getKeyPairs(baggage) {
-    return baggage.getAllEntries().map(([key, value]) => {
-      let entry = `${encodeURIComponent(key)}=${encodeURIComponent(value.value)}`;
-      if (value.metadata !== void 0) {
-        entry += BAGGAGE_PROPERTIES_SEPARATOR + value.metadata.toString();
-      }
-      return entry;
-    });
-  }
-  function parsePairKeyValue(entry) {
-    if (!entry)
-      return;
-    const metadataSeparatorIndex = entry.indexOf(BAGGAGE_PROPERTIES_SEPARATOR);
-    const keyPairPart = metadataSeparatorIndex === -1 ? entry : entry.substring(0, metadataSeparatorIndex);
-    const separatorIndex = keyPairPart.indexOf(BAGGAGE_KEY_PAIR_SEPARATOR);
-    if (separatorIndex <= 0)
-      return;
-    const rawKey = keyPairPart.substring(0, separatorIndex).trim();
-    const rawValue = keyPairPart.substring(separatorIndex + 1).trim();
-    if (!rawKey || !rawValue)
-      return;
-    let key;
-    let value;
-    try {
-      key = decodeURIComponent(rawKey);
-      value = decodeURIComponent(rawValue);
-    } catch {
-      return;
-    }
-    let metadata;
-    if (metadataSeparatorIndex !== -1 && metadataSeparatorIndex < entry.length - 1) {
-      const metadataString = entry.substring(metadataSeparatorIndex + 1);
-      metadata = baggageEntryMetadataFromString(metadataString);
-    }
-    return { key, value, metadata };
-  }
-
-  // node_modules/@opentelemetry/core/build/esm/baggage/propagation/W3CBaggagePropagator.js
-  var W3CBaggagePropagator = class {
-    inject(context2, carrier, setter) {
-      const baggage = propagation.getBaggage(context2);
-      if (!baggage || isTracingSuppressed(context2))
-        return;
-      const keyPairs = getKeyPairs(baggage).filter((pair) => {
-        return pair.length <= BAGGAGE_MAX_PER_NAME_VALUE_PAIRS;
-      }).slice(0, BAGGAGE_MAX_NAME_VALUE_PAIRS);
-      const headerValue = serializeKeyPairs(keyPairs);
-      if (headerValue.length > 0) {
-        setter.set(carrier, BAGGAGE_HEADER, headerValue);
-      }
-    }
-    extract(context2, carrier, getter) {
-      const headerValue = getter.get(carrier, BAGGAGE_HEADER);
-      const baggageString = Array.isArray(headerValue) ? headerValue.join(BAGGAGE_ITEMS_SEPARATOR) : headerValue;
-      if (!baggageString)
-        return context2;
-      const baggage = {};
-      if (baggageString.length === 0) {
-        return context2;
-      }
-      const pairs = baggageString.split(BAGGAGE_ITEMS_SEPARATOR);
-      pairs.forEach((entry) => {
-        const keyPair = parsePairKeyValue(entry);
-        if (keyPair) {
-          const baggageEntry = { value: keyPair.value };
-          if (keyPair.metadata) {
-            baggageEntry.metadata = keyPair.metadata;
-          }
-          baggage[keyPair.key] = baggageEntry;
-        }
-      });
-      if (Object.entries(baggage).length === 0) {
-        return context2;
-      }
-      return propagation.setBaggage(context2, propagation.createBaggage(baggage));
-    }
-    fields() {
-      return [BAGGAGE_HEADER];
-    }
-  };
-
   // node_modules/@opentelemetry/core/build/esm/common/attributes.js
   function sanitizeAttributes(attributes) {
     const out = {};
@@ -1110,12 +794,12 @@
         continue;
       }
       if (!isAttributeKey(key)) {
-        diag2.warn(`Invalid attribute key: ${key}`);
+        diag.warn(`Invalid attribute key: ${key}`);
         continue;
       }
       const val = attributes[key];
       if (!isAttributeValue(val)) {
-        diag2.warn(`Invalid attribute value set for key: ${key}`);
+        diag.warn(`Invalid attribute value set for key: ${key}`);
         continue;
       }
       if (Array.isArray(val)) {
@@ -1171,7 +855,7 @@
   // node_modules/@opentelemetry/core/build/esm/common/logging-error-handler.js
   function loggingErrorHandler() {
     return (ex) => {
-      diag2.error(stringifyException(ex));
+      diag.error(stringifyException(ex));
     };
   }
   function stringifyException(ex) {
@@ -1475,193 +1159,6 @@
     ExportResultCode2[ExportResultCode2["FAILED"] = 1] = "FAILED";
   })(ExportResultCode || (ExportResultCode = {}));
 
-  // node_modules/@opentelemetry/core/build/esm/propagation/composite.js
-  var CompositePropagator = class {
-    _propagators;
-    _fields;
-    /**
-     * Construct a composite propagator from a list of propagators.
-     *
-     * @param [config] Configuration object for composite propagator
-     */
-    constructor(config = {}) {
-      this._propagators = config.propagators ?? [];
-      this._fields = Array.from(new Set(this._propagators.map((p) => typeof p.fields === "function" ? p.fields() : []).reduce((x, y) => x.concat(y), [])));
-    }
-    /**
-     * Run each of the configured propagators with the given context and carrier.
-     * Propagators are run in the order they are configured, so if multiple
-     * propagators write the same carrier key, the propagator later in the list
-     * will "win".
-     *
-     * @param context Context to inject
-     * @param carrier Carrier into which context will be injected
-     */
-    inject(context2, carrier, setter) {
-      for (const propagator of this._propagators) {
-        try {
-          propagator.inject(context2, carrier, setter);
-        } catch (err) {
-          diag2.warn(`Failed to inject with ${propagator.constructor.name}. Err: ${err.message}`);
-        }
-      }
-    }
-    /**
-     * Run each of the configured propagators with the given context and carrier.
-     * Propagators are run in the order they are configured, so if multiple
-     * propagators write the same context key, the propagator later in the list
-     * will "win".
-     *
-     * @param context Context to add values to
-     * @param carrier Carrier from which to extract context
-     */
-    extract(context2, carrier, getter) {
-      return this._propagators.reduce((ctx, propagator) => {
-        try {
-          return propagator.extract(ctx, carrier, getter);
-        } catch (err) {
-          diag2.warn(`Failed to extract with ${propagator.constructor.name}. Err: ${err.message}`);
-        }
-        return ctx;
-      }, context2);
-    }
-    fields() {
-      return this._fields.slice();
-    }
-  };
-
-  // node_modules/@opentelemetry/core/build/esm/internal/validators.js
-  var VALID_KEY_CHAR_RANGE = "[_0-9a-z-*/]";
-  var VALID_KEY = `[a-z]${VALID_KEY_CHAR_RANGE}{0,255}`;
-  var VALID_VENDOR_KEY = `[a-z0-9]${VALID_KEY_CHAR_RANGE}{0,240}@[a-z]${VALID_KEY_CHAR_RANGE}{0,13}`;
-  var VALID_KEY_REGEX = new RegExp(`^(?:${VALID_KEY}|${VALID_VENDOR_KEY})$`);
-  var VALID_VALUE_BASE_REGEX = /^[ -~]{0,255}[!-~]$/;
-  var INVALID_VALUE_COMMA_EQUAL_REGEX = /,|=/;
-  function validateKey(key) {
-    return VALID_KEY_REGEX.test(key);
-  }
-  function validateValue(value) {
-    return VALID_VALUE_BASE_REGEX.test(value) && !INVALID_VALUE_COMMA_EQUAL_REGEX.test(value);
-  }
-
-  // node_modules/@opentelemetry/core/build/esm/trace/TraceState.js
-  var MAX_TRACE_STATE_ITEMS = 32;
-  var MAX_TRACE_STATE_LEN = 512;
-  var LIST_MEMBERS_SEPARATOR = ",";
-  var LIST_MEMBER_KEY_VALUE_SPLITTER = "=";
-  var TraceState = class _TraceState {
-    _internalState = /* @__PURE__ */ new Map();
-    constructor(rawTraceState) {
-      if (rawTraceState)
-        this._parse(rawTraceState);
-    }
-    set(key, value) {
-      const traceState = this._clone();
-      if (traceState._internalState.has(key)) {
-        traceState._internalState.delete(key);
-      }
-      traceState._internalState.set(key, value);
-      return traceState;
-    }
-    unset(key) {
-      const traceState = this._clone();
-      traceState._internalState.delete(key);
-      return traceState;
-    }
-    get(key) {
-      return this._internalState.get(key);
-    }
-    serialize() {
-      return this._keys().reduce((agg, key) => {
-        agg.push(key + LIST_MEMBER_KEY_VALUE_SPLITTER + this.get(key));
-        return agg;
-      }, []).join(LIST_MEMBERS_SEPARATOR);
-    }
-    _parse(rawTraceState) {
-      if (rawTraceState.length > MAX_TRACE_STATE_LEN)
-        return;
-      this._internalState = rawTraceState.split(LIST_MEMBERS_SEPARATOR).reverse().reduce((agg, part) => {
-        const listMember = part.trim();
-        const i = listMember.indexOf(LIST_MEMBER_KEY_VALUE_SPLITTER);
-        if (i !== -1) {
-          const key = listMember.slice(0, i);
-          const value = listMember.slice(i + 1, part.length);
-          if (validateKey(key) && validateValue(value)) {
-            agg.set(key, value);
-          } else {
-          }
-        }
-        return agg;
-      }, /* @__PURE__ */ new Map());
-      if (this._internalState.size > MAX_TRACE_STATE_ITEMS) {
-        this._internalState = new Map(Array.from(this._internalState.entries()).reverse().slice(0, MAX_TRACE_STATE_ITEMS));
-      }
-    }
-    _keys() {
-      return Array.from(this._internalState.keys()).reverse();
-    }
-    _clone() {
-      const traceState = new _TraceState();
-      traceState._internalState = new Map(this._internalState);
-      return traceState;
-    }
-  };
-
-  // node_modules/@opentelemetry/core/build/esm/trace/W3CTraceContextPropagator.js
-  var TRACE_PARENT_HEADER = "traceparent";
-  var TRACE_STATE_HEADER = "tracestate";
-  var VERSION3 = "00";
-  var VERSION_PART = "(?!ff)[\\da-f]{2}";
-  var TRACE_ID_PART = "(?![0]{32})[\\da-f]{32}";
-  var PARENT_ID_PART = "(?![0]{16})[\\da-f]{16}";
-  var FLAGS_PART = "[\\da-f]{2}";
-  var TRACE_PARENT_REGEX = new RegExp(`^\\s?(${VERSION_PART})-(${TRACE_ID_PART})-(${PARENT_ID_PART})-(${FLAGS_PART})(-.*)?\\s?$`);
-  function parseTraceParent(traceParent) {
-    const match = TRACE_PARENT_REGEX.exec(traceParent);
-    if (!match)
-      return null;
-    if (match[1] === "00" && match[5])
-      return null;
-    return {
-      traceId: match[2],
-      spanId: match[3],
-      traceFlags: parseInt(match[4], 16)
-    };
-  }
-  var W3CTraceContextPropagator = class {
-    inject(context2, carrier, setter) {
-      const spanContext = trace.getSpanContext(context2);
-      if (!spanContext || isTracingSuppressed(context2) || !isSpanContextValid(spanContext))
-        return;
-      const traceParent = `${VERSION3}-${spanContext.traceId}-${spanContext.spanId}-0${Number(spanContext.traceFlags || TraceFlags.NONE).toString(16)}`;
-      setter.set(carrier, TRACE_PARENT_HEADER, traceParent);
-      if (spanContext.traceState) {
-        setter.set(carrier, TRACE_STATE_HEADER, spanContext.traceState.serialize());
-      }
-    }
-    extract(context2, carrier, getter) {
-      const traceParentHeader = getter.get(carrier, TRACE_PARENT_HEADER);
-      if (!traceParentHeader)
-        return context2;
-      const traceParent = Array.isArray(traceParentHeader) ? traceParentHeader[0] : traceParentHeader;
-      if (typeof traceParent !== "string")
-        return context2;
-      const spanContext = parseTraceParent(traceParent);
-      if (!spanContext)
-        return context2;
-      spanContext.isRemote = true;
-      const traceStateHeader = getter.get(carrier, TRACE_STATE_HEADER);
-      if (traceStateHeader) {
-        const state = Array.isArray(traceStateHeader) ? traceStateHeader.join(",") : traceStateHeader;
-        spanContext.traceState = new TraceState(typeof state === "string" ? state : void 0);
-      }
-      return trace.setSpanContext(context2, spanContext);
-    }
-    fields() {
-      return [TRACE_PARENT_HEADER, TRACE_STATE_HEADER];
-    }
-  };
-
   // node_modules/@opentelemetry/core/build/esm/utils/lodash.merge.js
   var objectTag = "[object Object]";
   var nullTag = "[object Null]";
@@ -1946,7 +1443,7 @@
     }
     get attributes() {
       if (this.asyncAttributesPending) {
-        diag2.error("Accessing resource attributes before async attributes settled");
+        diag.error("Accessing resource attributes before async attributes settled");
       }
       if (this._memoizedAttributes) {
         return this._memoizedAttributes;
@@ -1954,7 +1451,7 @@
       const attrs = {};
       for (const [k, v] of this._rawAttributes) {
         if (isPromiseLike(v)) {
-          diag2.debug(`Unsettled resource attribute ${k} skipped`);
+          diag.debug(`Unsettled resource attribute ${k} skipped`);
           continue;
         }
         if (v != null) {
@@ -1997,7 +1494,7 @@
         return [
           k,
           v.catch((err) => {
-            diag2.debug("promise rejection for resource attribute: %s - %s", k, err);
+            diag.debug("promise rejection for resource attribute: %s - %s", k, err);
             return void 0;
           })
         ];
@@ -2009,7 +1506,7 @@
     if (typeof schemaUrl === "string" || schemaUrl === void 0) {
       return schemaUrl;
     }
-    diag2.warn("Schema URL must be string or undefined, got %s. Schema URL will be ignored.", schemaUrl);
+    diag.warn("Schema URL must be string or undefined, got %s. Schema URL will be ignored.", schemaUrl);
     return void 0;
   }
   function mergeSchemaUrl(old, updating) {
@@ -2026,7 +1523,7 @@
     if (oldSchemaUrl === updatingSchemaUrl) {
       return oldSchemaUrl;
     }
-    diag2.warn('Schema URL merge conflict: old resource has "%s", updating resource has "%s". Resulting resource will have undefined Schema URL.', oldSchemaUrl, updatingSchemaUrl);
+    diag.warn('Schema URL merge conflict: old resource has "%s", updating resource has "%s". Resulting resource will have undefined Schema URL.', oldSchemaUrl, updatingSchemaUrl);
     return void 0;
   }
 
@@ -2093,11 +1590,11 @@
       if (value == null || this._isSpanEnded())
         return this;
       if (key.length === 0) {
-        diag2.warn(`Invalid attribute key: ${key}`);
+        diag.warn(`Invalid attribute key: ${key}`);
         return this;
       }
       if (!isAttributeValue(value)) {
-        diag2.warn(`Invalid attribute value set for key: ${key}`);
+        diag.warn(`Invalid attribute value set for key: ${key}`);
         return this;
       }
       const { attributeCountLimit } = this._spanLimits;
@@ -2126,13 +1623,13 @@
         return this;
       const { eventCountLimit } = this._spanLimits;
       if (eventCountLimit === 0) {
-        diag2.warn("No events allowed.");
+        diag.warn("No events allowed.");
         this._droppedEventsCount++;
         return this;
       }
       if (eventCountLimit !== void 0 && this.events.length >= eventCountLimit) {
         if (this._droppedEventsCount === 0) {
-          diag2.debug("Dropping extra events.");
+          diag.debug("Dropping extra events.");
         }
         this.events.shift();
         this._droppedEventsCount++;
@@ -2165,7 +1662,7 @@
         return this;
       this.status = { ...status };
       if (this.status.message != null && typeof status.message !== "string") {
-        diag2.warn(`Dropping invalid status.message of type '${typeof status.message}', expected 'string'`);
+        diag.warn(`Dropping invalid status.message of type '${typeof status.message}', expected 'string'`);
         delete this.status.message;
       }
       return this;
@@ -2178,18 +1675,18 @@
     }
     end(endTime) {
       if (this._isSpanEnded()) {
-        diag2.error(`${this.name} ${this._spanContext.traceId}-${this._spanContext.spanId} - You can only call end() on a span once.`);
+        diag.error(`${this.name} ${this._spanContext.traceId}-${this._spanContext.spanId} - You can only call end() on a span once.`);
         return;
       }
       this.endTime = this._getTime(endTime);
       this._duration = hrTimeDuration(this.startTime, this.endTime);
       if (this._duration[0] < 0) {
-        diag2.warn("Inconsistent start and end time, startTime > endTime. Setting span duration to 0ms.", this.startTime, this.endTime);
+        diag.warn("Inconsistent start and end time, startTime > endTime. Setting span duration to 0ms.", this.startTime, this.endTime);
         this.endTime = this.startTime.slice();
         this._duration = [0, 0];
       }
       if (this._droppedEventsCount > 0) {
-        diag2.warn(`Dropped ${this._droppedEventsCount} events because eventCountLimit reached`);
+        diag.warn(`Dropped ${this._droppedEventsCount} events because eventCountLimit reached`);
       }
       if (this._spanProcessor.onEnding) {
         this._spanProcessor.onEnding(this);
@@ -2239,7 +1736,7 @@
       if (attributes[ATTR_EXCEPTION_TYPE] || attributes[ATTR_EXCEPTION_MESSAGE]) {
         this.addEvent(ExceptionEventName, attributes, time);
       } else {
-        diag2.warn(`Failed to record an exception ${exception}`);
+        diag.warn(`Failed to record an exception ${exception}`);
       }
     }
     get duration() {
@@ -2260,7 +1757,7 @@
     _isSpanEnded() {
       if (this._ended) {
         const error = new Error(`Operation attempted on ended Span {traceId: ${this._spanContext.traceId}, spanId: ${this._spanContext.spanId}}`);
-        diag2.warn(`Cannot execute the operation on ended Span {traceId: ${this._spanContext.traceId}, spanId: ${this._spanContext.spanId}}`, error);
+        diag.warn(`Cannot execute the operation on ended Span {traceId: ${this._spanContext.traceId}, spanId: ${this._spanContext.spanId}}`, error);
       }
       return this._ended;
     }
@@ -2288,7 +1785,7 @@
     _truncateToSize(value) {
       const limit = this._attributeValueLengthLimit;
       if (limit <= 0) {
-        diag2.warn(`Attribute value limit must be positive, got ${limit}`);
+        diag.warn(`Attribute value limit must be positive, got ${limit}`);
         return value;
       }
       if (typeof value === "string") {
@@ -2455,7 +1952,7 @@
           root: new TraceIdRatioBasedSampler(getSamplerProbabilityFromEnv())
         });
       default:
-        diag2.error(`OTEL_TRACES_SAMPLER value "${sampler}" invalid, defaulting to "${TracesSamplerValues.ParentBasedAlwaysOn}".`);
+        diag.error(`OTEL_TRACES_SAMPLER value "${sampler}" invalid, defaulting to "${TracesSamplerValues.ParentBasedAlwaysOn}".`);
         return new ParentBasedSampler({
           root: new AlwaysOnSampler()
         });
@@ -2464,11 +1961,11 @@
   function getSamplerProbabilityFromEnv() {
     const probability = getNumberFromEnv("OTEL_TRACES_SAMPLER_ARG");
     if (probability == null) {
-      diag2.error(`OTEL_TRACES_SAMPLER_ARG is blank, defaulting to ${DEFAULT_RATIO}.`);
+      diag.error(`OTEL_TRACES_SAMPLER_ARG is blank, defaulting to ${DEFAULT_RATIO}.`);
       return DEFAULT_RATIO;
     }
     if (probability < 0 || probability > 1) {
-      diag2.error(`OTEL_TRACES_SAMPLER_ARG=${probability} was given, but it is out of range ([0..1]), defaulting to ${DEFAULT_RATIO}.`);
+      diag.error(`OTEL_TRACES_SAMPLER_ARG=${probability} was given, but it is out of range ([0..1]), defaulting to ${DEFAULT_RATIO}.`);
       return DEFAULT_RATIO;
     }
     return probability;
@@ -2554,7 +2051,7 @@
       }
       const parentSpan = trace.getSpan(context2);
       if (isTracingSuppressed(context2)) {
-        diag2.debug("Instrumentation suppressed, returning Noop Span");
+        diag.debug("Instrumentation suppressed, returning Noop Span");
         const nonRecordingSpan = trace.wrapSpanContext(INVALID_SPAN_CONTEXT);
         return nonRecordingSpan;
       }
@@ -2583,7 +2080,7 @@
       const traceFlags = samplingResult.decision === SamplingDecision.RECORD_AND_SAMPLED ? TraceFlags.SAMPLED : TraceFlags.NONE;
       const spanContext = { traceId, spanId, traceFlags, traceState };
       if (samplingResult.decision === SamplingDecision.NOT_RECORD) {
-        diag2.debug("Recording is off, propagating context in a non-recording span");
+        diag.debug("Recording is off, propagating context in a non-recording span");
         const nonRecordingSpan = trace.wrapSpanContext(spanContext);
         return nonRecordingSpan;
       }
@@ -2863,145 +2360,6 @@
     }
   };
 
-  // node_modules/@opentelemetry/sdk-trace-web/build/esm/StackContextManager.js
-  var StackContextManager = class {
-    /**
-     * whether the context manager is enabled or not
-     */
-    _enabled = false;
-    /**
-     * Keeps the reference to current context
-     */
-    _currentContext = ROOT_CONTEXT;
-    /**
-     *
-     * @param context
-     * @param target Function to be executed within the context
-     */
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-    _bindFunction(context2 = ROOT_CONTEXT, target) {
-      const manager = this;
-      const contextWrapper = function(...args) {
-        return manager.with(context2, () => target.apply(this, args));
-      };
-      Object.defineProperty(contextWrapper, "length", {
-        enumerable: false,
-        configurable: true,
-        writable: false,
-        value: target.length
-      });
-      return contextWrapper;
-    }
-    /**
-     * Returns the active context
-     */
-    active() {
-      return this._currentContext;
-    }
-    /**
-     * Binds a the certain context or the active one to the target function and then returns the target
-     * @param context A context (span) to be bind to target
-     * @param target a function or event emitter. When target or one of its callbacks is called,
-     *  the provided context will be used as the active context for the duration of the call.
-     */
-    bind(context2, target) {
-      if (context2 === void 0) {
-        context2 = this.active();
-      }
-      if (typeof target === "function") {
-        return this._bindFunction(context2, target);
-      }
-      return target;
-    }
-    /**
-     * Disable the context manager (clears the current context)
-     */
-    disable() {
-      this._currentContext = ROOT_CONTEXT;
-      this._enabled = false;
-      return this;
-    }
-    /**
-     * Enables the context manager and creates a default(root) context
-     */
-    enable() {
-      if (this._enabled) {
-        return this;
-      }
-      this._enabled = true;
-      this._currentContext = ROOT_CONTEXT;
-      return this;
-    }
-    /**
-     * Calls the callback function [fn] with the provided [context]. If [context] is undefined then it will use the window.
-     * The context will be set as active
-     * @param context
-     * @param fn Callback function
-     * @param thisArg optional receiver to be used for calling fn
-     * @param args optional arguments forwarded to fn
-     */
-    with(context2, fn, thisArg, ...args) {
-      const previousContext = this._currentContext;
-      this._currentContext = context2 || ROOT_CONTEXT;
-      try {
-        return fn.call(thisArg, ...args);
-      } finally {
-        this._currentContext = previousContext;
-      }
-    }
-  };
-
-  // node_modules/@opentelemetry/sdk-trace-web/build/esm/WebTracerProvider.js
-  function setupContextManager(contextManager) {
-    if (contextManager === null) {
-      return;
-    }
-    if (contextManager === void 0) {
-      const defaultContextManager = new StackContextManager();
-      defaultContextManager.enable();
-      context.setGlobalContextManager(defaultContextManager);
-      return;
-    }
-    contextManager.enable();
-    context.setGlobalContextManager(contextManager);
-  }
-  function setupPropagator(propagator) {
-    if (propagator === null) {
-      return;
-    }
-    if (propagator === void 0) {
-      propagation.setGlobalPropagator(new CompositePropagator({
-        propagators: [
-          new W3CTraceContextPropagator(),
-          new W3CBaggagePropagator()
-        ]
-      }));
-      return;
-    }
-    propagation.setGlobalPropagator(propagator);
-  }
-  var WebTracerProvider = class extends BasicTracerProvider {
-    /**
-     * Constructs a new Tracer instance.
-     * @param config Web Tracer config
-     */
-    constructor(config = {}) {
-      super(config);
-    }
-    /**
-     * Register this TracerProvider for use with the OpenTelemetry API.
-     * Undefined values may be replaced with defaults, and
-     * null values will be skipped.
-     *
-     * @param config Configuration object for SDK registration
-     */
-    register(config = {}) {
-      trace.setGlobalTracerProvider(this);
-      setupPropagator(config.propagator);
-      setupContextManager(config.contextManager);
-    }
-  };
-
   // node_modules/@opentelemetry/otlp-exporter-base/build/esm/OTLPExporterBase.js
   var OTLPExporterBase = class {
     _delegate;
@@ -3106,7 +2464,7 @@
         if (response == null || !isPartialSuccessResponse(response) || response.partialSuccess == null || Object.keys(response.partialSuccess).length === 0) {
           return;
         }
-        diag2.warn("Received Partial Success response:", JSON.stringify(response.partialSuccess));
+        diag.warn("Received Partial Success response:", JSON.stringify(response.partialSuccess));
       }
     };
   }
@@ -3125,7 +2483,7 @@
       this._responseHandler = responseHandler;
       this._promiseQueue = promiseQueue;
       this._timeout = timeout;
-      this._diagLogger = diag2.createComponentLogger({
+      this._diagLogger = diag.createComponentLogger({
         namespace: "OTLPExportDelegate"
       });
     }
@@ -3485,18 +2843,18 @@
         const retryInMillis = result.retryInMillis ?? backoff;
         const remainingTimeoutMillis = deadline - Date.now();
         if (retryInMillis > remainingTimeoutMillis) {
-          diag2.info(`Export retry time ${Math.round(retryInMillis)}ms exceeds remaining timeout ${Math.round(remainingTimeoutMillis)}ms, not retrying further.`);
+          diag.info(`Export retry time ${Math.round(retryInMillis)}ms exceeds remaining timeout ${Math.round(remainingTimeoutMillis)}ms, not retrying further.`);
           return result;
         }
-        diag2.verbose(`Scheduling export retry in ${Math.round(retryInMillis)}ms`);
+        diag.verbose(`Scheduling export retry in ${Math.round(retryInMillis)}ms`);
         result = await this.retry(data, remainingTimeoutMillis, retryInMillis);
       }
       if (result.status === "success") {
-        diag2.verbose(`Export succeeded after ${MAX_ATTEMPTS - attempts} retry attempts.`);
+        diag.verbose(`Export succeeded after ${MAX_ATTEMPTS - attempts} retry attempts.`);
       } else if (result.status === "retryable") {
-        diag2.info(`Export failed after maximum retry attempts (${MAX_ATTEMPTS}).`);
+        diag.info(`Export failed after maximum retry attempts (${MAX_ATTEMPTS}).`);
       } else {
-        diag2.info(`Export failed with non-retryable error: ${result.error}`);
+        diag.info(`Export failed with non-retryable error: ${result.error}`);
       }
       return result;
     }
@@ -3518,7 +2876,7 @@
       const blobType = (await this._params.headers())["Content-Type"];
       return new Promise((resolve) => {
         if (navigator.sendBeacon(this._params.url, new Blob([data], { type: blobType }))) {
-          diag2.debug("SendBeacon success");
+          diag.debug("SendBeacon success");
           resolve({
             status: "success"
           });
@@ -3577,7 +2935,7 @@
           mode: isBrowserEnvironment ? globalThis.location?.origin === url.origin ? "same-origin" : "cors" : "no-cors"
         });
         if (response.status >= 200 && response.status <= 299) {
-          diag2.debug("response success");
+          diag.debug("response success");
           return { status: "success" };
         } else if (isExportHTTPErrorRetryable(response.status)) {
           const retryAfter = response.headers.get("Retry-After");
@@ -3637,7 +2995,7 @@
       if (typeof value !== "undefined") {
         headers[key] = String(value);
       } else {
-        diag2.warn(`Header "${key}" has invalid value (${value}) and will be ignored`);
+        diag.warn(`Header "${key}" has invalid value (${value}) and will be ignored`);
       }
     });
     return headers;
@@ -3730,17 +3088,19 @@
 
   // entry.js
   function setupRUM(serviceName2, collectorUrl) {
-    console.log("Iniciando setup RUM para:", serviceName2);
+    console.log("Iniciando setup RUM (Modo Compatibilidade) para:", serviceName2);
     const exporter = new OTLPTraceExporter({ url: collectorUrl });
     const resource = resourceFromAttributes({
       [SemanticResourceAttributes.SERVICE_NAME]: serviceName2,
-      [SemanticResourceAttributes.SERVICE_VERSION]: "1.0.0"
+      [SemanticResourceAttributes.SERVICE_VERSION]: "1.0.0",
+      "deployment.environment": "production"
     });
-    const provider = new WebTracerProvider({ resource });
+    const provider = new BasicTracerProvider({ resource });
+    console.log("Provider criado:", provider);
     provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
     provider.addSpanProcessor(new SimpleSpanProcessor(new ConsoleSpanExporter()));
     provider.register();
-    return provider.getTracer("rum-tracer");
+    return provider.getTracer("rum-tracer-base");
   }
   window.otel = { setupRUM };
 })();
