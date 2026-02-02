@@ -16,4 +16,4 @@ def test_home_page(client):
 
     # Verifica se o texto "Rancher Fleet" está na resposta
     # O 'b' antes das aspas significa bytes (como a internet trafega dados)
-    assert b"Rancher Fleet" in response.data
+    assert b"Rancher, Fleet" in response.data
