@@ -3,16 +3,18 @@ from flask import Flask, jsonify
 
 app = Flask(__name__)
 
-# Bloco RUM com instrumentação completa
+# Bloco RUM com propagador W3C e instrumentação completa
 OTEL_RUM_CONFIG = """
 <script type="module">
   import { WebTracerProvider } from 'https://esm.sh/@opentelemetry/sdk-trace-web@1.30.1';
-  import { SimpleSpanProcessor } from 'https://esm.sh/@opentelemetry/sdk-trace-base@1.30.1';
+  import { SimpleSpanProcessor, BatchSpanProcessor } from 'https://esm.sh/@opentelemetry/sdk-trace-base@1.30.1';
   import { Resource } from 'https://esm.sh/@opentelemetry/resources@1.30.1';
   import { SemanticResourceAttributes } from 'https://esm.sh/@opentelemetry/semantic-conventions@1.28.0';
   import { OTLPTraceExporter } from 'https://esm.sh/@opentelemetry/exporter-trace-otlp-http@0.57.2';
   import { FetchInstrumentation } from 'https://esm.sh/@opentelemetry/instrumentation-fetch@0.34.0';
   import { XMLHttpRequestInstrumentation } from 'https://esm.sh/@opentelemetry/instrumentation-xml-http-request@0.34.0';
+  import { W3CTraceContextPropagator } from 'https://esm.sh/@opentelemetry/core@1.30.1';
+  import { propagation } from 'https://esm.sh/@opentelemetry/api@1.7.0';
 
   try {
       const resource = new Resource({
@@ -24,8 +26,12 @@ OTEL_RUM_CONFIG = """
       const collectorTraceUrl = 'https://otel-collector.129-213-28-76.sslip.io/v1/traces';
       const traceExporter = new OTLPTraceExporter({ url: collectorTraceUrl });
       const tracerProvider = new WebTracerProvider({ resource });
-      tracerProvider.addSpanProcessor(new SimpleSpanProcessor(traceExporter));
+      tracerProvider.addSpanProcessor(new BatchSpanProcessor(traceExporter)); // batching para reduzir overhead
       tracerProvider.register();
+
+      // Define propagador W3C para garantir envio do traceparent
+      propagation.setGlobalPropagator(new W3CTraceContextPropagator());
+
       const tracer = tracerProvider.getTracer('flask-rum-cdn');
 
       // Instrumenta todas as chamadas HTTP
@@ -70,7 +76,7 @@ def hello():
     <head><meta charset="UTF-8"><title>Full Stack RUM</title>{OTEL_RUM_CONFIG}</head>
     <body style="font-family: sans-serif; text-align: center; padding: 50px;">
         <h1>Full Stack Monitor 🚀</h1>
-        <p>RUM completo</p>
+        <p>RUM completo !</p>
         <p>Frontend e Backend</p>
         <button style="padding:15px; background:blue; color:white;" onclick="window.realAction('COMPRAR')">🛒 Comprar (POST)</button>
         <button style="padding:15px; background:red; color:white;" onclick="window.realAction('ERROR')">❌ Erro (POST)</button>
