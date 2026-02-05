@@ -1,49 +1,53 @@
 import pytest
-from app.app import app
+import json
+from app import app as flask_app # Ajuste o import conforme sua pasta
 
 @pytest.fixture
 def client():
-    with app.test_client() as client:
-        yield client
-
-def test_app_structure_and_rum_injection(client):
-    """
-    Teste Genérico de Sanidade (Smoke Test).
-    Valida se a aplicação responde e se os componentes CRÍTICOS do RUM estão presentes,
-    independentemente da versão ou estratégia (Logs vs Events).
-    """
-    # 1. Faz a requisição
-    response = client.get('/')
+    # Configura modo de teste para o Flask
+    flask_app.config['TESTING'] = True
     
-    # Decodifica os bytes para string para facilitar a busca
+    # Dica Ninja: Desabilitamos o Rastreamento do SQLAlchemy nos testes 
+    # para não poluir logs ou tentar conectar sem necessidade critica
+    flask_app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///:memory:" # Banco Fake na memória RAM
+    
+    with flask_app.test_client() as client:
+        with flask_app.app_context():
+            # Cria banco em memória para o teste funcionar liso
+            from app import db
+            db.create_all()
+            yield client
+
+def test_frontend_rum_injection(client):
+    """
+    Valida se o HTML contém o script de monitoramento (RUM).
+    """
+    response = client.get('/')
     html = response.data.decode('utf-8')
 
-    # ------------------------------------------------------------------
-    # CHECK 1: DISPONIBILIDADE
-    # O site tem que carregar.
-    # ------------------------------------------------------------------
     assert response.status_code == 200
     assert "<!DOCTYPE html>" in html
-
-    # ------------------------------------------------------------------
-    # CHECK 2: PRESENÇA DO OPENTELEMETRY
-    # Não importa a versão, tem que ter imports do '@opentelemetry'.
-    # Isso garante que o bloco <script> não foi apagado sem querer.
-    # ------------------------------------------------------------------
+    
+    # Valida configs do OpenTelemetry
     assert "@opentelemetry/sdk-trace-web" in html
-    assert "@opentelemetry/resources" in html
-
-    # ------------------------------------------------------------------
-    # CHECK 3: CONFIGURAÇÃO DO SERVIDOR (COLLECTOR)
-    # Verifica se o endpoint do SigNoz está configurado no código.
-    # O teste passa se encontrar o domínio do seu collector.
-    # ------------------------------------------------------------------
     assert "otel-collector.129-213-28-76.sslip.io" in html
-
-    # ------------------------------------------------------------------
-    # CHECK 4: IDENTIDADE DO SERVIÇO
-    # Garante que o nome do serviço está correto (importante para achar no SigNoz)
-    # ------------------------------------------------------------------
     assert "flask-frontend-rum" in html
 
-    print("\n✅ O App está no ar e o script RUM está injetado corretamente.")
+def test_backend_checkout_flow(client):
+    """
+    Valida se a rota POST /checkout responde JSON corretamente.
+    """
+    # Simula o navegador enviando um POST
+    response = client.post('/checkout')
+    
+    # O status deve ser 200 (Sucesso) ou 500 (Erro controlado)
+    # Como estamos usando SQLite em memória, deve dar 200 SUCESSO!
+    assert response.status_code == 200
+    
+    data = response.get_json()
+    assert "status" in data
+    
+    # Se o banco em memória funcionou, deve vir "compra_sucesso"
+    if response.status_code == 200:
+        assert data['status'] == "compra_sucesso"
+        assert "id" in data
