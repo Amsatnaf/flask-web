@@ -176,7 +176,7 @@ RUM_HTML = """
     <p>Frontend -> Backend (OCI) -> Database (GCP)</p>
     <div style="margin-top: 40px;">
         <button style="padding:15px 30px; background:#007bff; color:white; border:none; border-radius:5px; cursor:pointer; font-size:16px;" 
-            onclick="window.realAction('COMPRAR')">🛍️ Fazer Compra</button>
+            onclick="window.realAction('COMPRAR')">🛍️ Fazer Compra!</button>
         
         <button style="padding:15px 30px; background:#dc3545; color:white; border:none; border-radius:5px; cursor:pointer; font-size:16px; margin-left:15px;" 
             onclick="window.realAction('ERROR')">💣 Simular Erro</button>
