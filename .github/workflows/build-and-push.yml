@@ -37,29 +37,38 @@ jobs:
           registry: ghcr.io
           username: Amsatnaf
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
-          # MUDANÇA 1: Push se for main OU rolling
-          push: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/rolling') }}
-          # MUDANÇA 2: A tag :latest só é gerada se for na main (PROTEÇÃO)  
+          # CORREÇÃO 1: Adicionado "OR teste" no final. Agora a imagem sobe pro registro!
+          push: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/rolling' || github.ref == 'refs/heads/teste') }}
+          
           tags: |
             ${{ github.ref == 'refs/heads/main' && 'ghcr.io/amsatnaf/flask-web:latest' || '' }}
             ghcr.io/amsatnaf/flask-web:${{ github.sha }}
 
       - name: Update Kubernetes Manifest
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        # CORREÇÃO 2: Adicionado "OR teste" aqui também para atualizar o YAML automaticamente
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/teste')
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          
+
+          # ATENÇÃO: Confirme se o seu deployment.yaml está mesmo dentro da pasta "prod/"
+          # Se estiver na raiz, mude para FILE_PATH="deployment.yaml"
           FILE_PATH="prod/deployment.yaml"
           
-          sed -i "s|image: ghcr.io/amsatnaf/flask-web:.*|image: ghcr.io/amsatnaf/flask-web:${{ github.sha }}|g" $FILE_PATH
-          
-          git add $FILE_PATH
-          git commit -m "chore(ci): update image tag to ${{ github.sha }}"
-          git push
+          # Se o arquivo não existir na branch teste (ex: se estiver na raiz), o script não falha, mas avisa.
+          if [ -f "$FILE_PATH" ]; then
+            sed -i "s|image: ghcr.io/amsatnaf/flask-web:.*|image: ghcr.io/amsatnaf/flask-web:${{ github.sha }}|g" $FILE_PATH
+            
+            git add $FILE_PATH
+            git commit -m "chore(ci): update image tag to ${{ github.sha }}"
+            git push
+          else
+            echo "Arquivo $FILE_PATH não encontrado, pulando atualização de manifesto."
+          fi
