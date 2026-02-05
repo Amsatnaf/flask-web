@@ -19,7 +19,6 @@ db_pass = os.getenv("DB_PASS", "senha")
 db_host = os.getenv("DB_HOST", "127.0.0.1")
 db_name = os.getenv("DB_NAME", "loja_rum")
 
-# Encodamos a senha para permitir caracteres especiais
 encoded_pass = quote_plus(db_pass)
 app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{db_user}:{encoded_pass}@{db_host}/{db_name}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -27,7 +26,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_recycle': 280, 'pool_pre_ping':
 
 db = SQLAlchemy(app)
 
-# --- Modelo da Tabela ---
+# --- Modelo ---
 class Pedido(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     produto = db.Column(db.String(50))
@@ -35,7 +34,7 @@ class Pedido(db.Model):
     valor = db.Column(db.Float)
     timestamp_epoch = db.Column(db.Float)
 
-# --- Inicialização do Banco ---
+# --- Inicialização ---
 with app.app_context():
     try:
         db.create_all()
@@ -43,13 +42,13 @@ with app.app_context():
     except Exception as e:
         logger.error(f"❌ FALHA AO CONECTAR NO BANCO: {e}")
 
-# --- Frontend RUM (HTML + JS Ajustado para seus Dashboards) ---
+# --- Frontend RUM ---
 RUM_HTML = """
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Loja RUM - Observabilidade</title>
+    <title>Loja RUM - DB Trace</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; text-align: center; background-color: #f4f4f9; padding: 50px; }
         .card { background: white; max-width: 400px; margin: auto; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
@@ -72,10 +71,9 @@ RUM_HTML = """
       import { FetchInstrumentation } from 'https://esm.sh/@opentelemetry/instrumentation-fetch@0.34.0';
       import { W3CTraceContextPropagator } from 'https://esm.sh/@opentelemetry/core@1.30.1';
 
-      // 1. Configura o nome do serviço para bater com seu filtro 'flask-frontend-rum'
       const provider = new WebTracerProvider({
           resource: new Resource({ 
-            [SemanticResourceAttributes.SERVICE_NAME]: 'flask-frontend-rum', 
+            [SemanticResourceAttributes.SERVICE_NAME]: 'flask-frontend-rum',
             [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: 'producao'
           })
       });
@@ -89,19 +87,20 @@ RUM_HTML = """
       
       const tracer = provider.getTracer('loja-frontend');
 
-      // 2. SPAN PAGE_LOAD (Mede o tempo para carregar a página)
       window.addEventListener('load', () => {
           const pageLoadSpan = tracer.startSpan('page_load');
-          // Simulamos um pequeno tempo de processamento ou métricas de performance
+          console.log("🕒 [RUM] Page Load Iniciado...");
           setTimeout(() => {
               pageLoadSpan.end();
+              console.log("🕒 [RUM] Page Load Finalizado.");
           }, 100);
       });
 
-      // 3. SPAN USER_INTERACTION (Cliques)
       window.acao = (tipo) => {
-          // Renomeado para 'user_interaction' para bater com seu filtro
-          const span = tracer.startSpan('user_interaction', {
+          // 1. MUDANÇA: Nome do span agora é dinâmico (click_comprar ou click_erro)
+          // Isso separa as linhas no gráfico de contagem automaticamente.
+          const spanName = `click_${tipo}`; 
+          const span = tracer.startSpan(spanName, {
               attributes: { 
                   'app.component': 'botao',
                   'app.acao': tipo
@@ -109,6 +108,11 @@ RUM_HTML = """
           });
           
           const endpoint = tipo === 'comprar' ? '/checkout' : '/simular_erro';
+          
+          // 2. MUDANÇA: Logs explícitos no Console do Navegador
+          console.info(`🚀 [AÇÃO] Usuário clicou em: ${tipo.toUpperCase()}`);
+          console.log(`📡 [REDE] Enviando POST para: ${endpoint}...`);
+          
           document.getElementById('status').innerText = "Processando...";
 
           context.with(trace.setSpan(context.active(), span), () => {
@@ -116,19 +120,24 @@ RUM_HTML = """
                 .then(r => r.json().then(data => ({status: r.status, body: data})))
                 .then(res => { 
                     if(res.status === 200) {
-                        document.getElementById('status').innerText = `✅ Sucesso! ID: ${res.body.id}`;
+                        const msg = `✅ Sucesso! ID: ${res.body.id}`;
+                        document.getElementById('status').innerText = msg;
                         document.getElementById('status').style.color = "green";
-                        // Status Code 1 = OK (Unset ou OK)
+                        console.log(`✅ [SUCESSO] Pedido criado. ID Banco: ${res.body.id}`);
+                        
                         span.setStatus({ code: SpanStatusCode.OK });
                     } else {
-                        document.getElementById('status').innerText = `❌ Erro Capturado: ${res.body.msg}`;
+                        const msg = `❌ Erro: ${res.body.msg}`;
+                        document.getElementById('status').innerText = msg;
                         document.getElementById('status').style.color = "red";
-                        // Status Code 2 = ERROR (Isso ativa sua contagem de status_code = 2)
+                        console.error(`❌ [ERRO] Backend respondeu: ${res.body.msg}`);
+                        
                         span.setStatus({ code: SpanStatusCode.ERROR, message: res.body.msg });
                     }
                     span.end(); 
                 })
                 .catch(e => { 
+                    console.error("🔥 [CRASH] Erro de rede ou JS:", e);
                     document.getElementById('status').innerText = "Erro de Rede/Console"; 
                     span.recordException(e);
                     span.setStatus({ code: SpanStatusCode.ERROR });
@@ -141,9 +150,9 @@ RUM_HTML = """
 <body>
     <div class="card">
         <h1>🛍️ Loja RUM</h1>
-        <p>Monitoramento Avançado Ativo</p>
-        <button class="btn-buy" onclick="window.acao('comprar')">COMPRAR (Sucesso)</button>
-        <button class="btn-error" onclick="window.acao('erro')">GERAR ERRO (Falha)</button>
+        <p>Console do Navegador (F12) mostra detalhes agora.</p>
+        <button class="btn-buy" onclick="window.acao('comprar')">COMPRAR (Insert DB)</button>
+        <button class="btn-error" onclick="window.acao('erro')">GERAR ERRO (Simulação)</button>
         <div id="status">Aguardando ação...</div>
     </div>
 </body>
@@ -158,21 +167,33 @@ def home():
 def checkout():
     tracer = trace.get_tracer(__name__)
     
-    # 4. TRUQUE DO HTTP.METHOD="INTERNAL"
-    # Adicionamos o atributo 'http.method' manualmente neste span interno.
-    # Assim o SigNoz agrupa ele como "INTERNAL" em vez de vazio.
-    with tracer.start_as_current_span("processar_pagamento", attributes={"http.method": "INTERNAL"}) as span:
+    # 3. MUDANÇA: Detalhes Explícitos do Banco de Dados
+    # - Mudamos o nome do span para 'DB_INSERT_PEDIDO'
+    # - http.method="DB_INSERT" (para aparecer bonito no gráfico)
+    # - db.system="mysql" (para o SigNoz saber que é banco de dados)
+    span_attributes = {
+        "http.method": "DB_INSERT", 
+        "db.system": "mysql",
+        "db.operation": "INSERT",
+        "db.table": "pedido"
+    }
+    
+    with tracer.start_as_current_span("DB_INSERT_PEDIDO", attributes=span_attributes) as span:
         try:
-            logger.info("Iniciando checkout...")
+            logger.info("Iniciando transação no banco...")
+            
             novo = Pedido(produto="PlayStation 5", status="PAGO", valor=4500.00, timestamp_epoch=time.time())
             db.session.add(novo)
             db.session.commit()
+            
+            # Adiciona o ID gerado como atributo no trace
+            span.set_attribute("db.row_id", novo.id)
             
             logger.info(f"Pedido salvo com ID: {novo.id}")
             return jsonify({"status": "sucesso", "id": novo.id})
             
         except Exception as e:
-            logger.error(f"Erro no checkout: {e}")
+            logger.error(f"Erro no banco: {e}")
             span.record_exception(e)
             span.set_status(Status(StatusCode.ERROR))
             return jsonify({"status": "erro", "msg": str(e)}), 500
@@ -181,15 +202,14 @@ def checkout():
 def simular_erro():
     tracer = trace.get_tracer(__name__)
     
-    # Adicionamos 'http.method' aqui também para consistência no gráfico
-    with tracer.start_as_current_span("simulacao_falha_pagamento", attributes={"http.method": "INTERNAL"}) as span:
+    # Marcamos como erro interno explicitamente
+    with tracer.start_as_current_span("SIMULACAO_ERRO_GATEWAY", attributes={"http.method": "INTERNAL_ERROR"}) as span:
         try:
             logger.error("Simulação de erro solicitada!")
-            raise Exception("Gateway de Pagamento Indisponível (Simulação)")
+            raise Exception("Gateway de Pagamento: Timeout (Simulado)")
         except Exception as e:
             span.record_exception(e)
             span.set_status(Status(StatusCode.ERROR))
-            # Retorna JSON para o frontend exibir a mensagem bonita, mas com status 500
             return jsonify({"status": "erro_simulado", "msg": str(e)}), 500
 
 if __name__ == '__main__':
