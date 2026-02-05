@@ -1,44 +1,49 @@
-import sys
 import pytest
-from unittest.mock import MagicMock
-
-# --- MOCK DA SALVAÇÃO ---
-# Engana o Python se faltar lib do OTel para o teste não quebrar no import
-mock = MagicMock()
-sys.modules["opentelemetry"] = mock
-sys.modules["opentelemetry.trace"] = mock
-sys.modules["opentelemetry.exporter.otlp.proto.http.trace_exporter"] = mock
-# ------------------------
-
-# CORREÇÃO DO ERRO: Importando do caminho completo
-# "from app.app" pega o arquivo app.py dentro da pasta app
-# "import app" pega a variável 'app = Flask(__name__)' dentro do arquivo
 from app.app import app
 
 @pytest.fixture
 def client():
-    app.config['TESTING'] = True
-    # Banco na memória para não depender de nada externo
-    app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///:memory:"
-    
     with app.test_client() as client:
-        # Tentativa silenciosa de criar o banco. Se falhar, segue o baile.
-        try:
-            from app.app import db
-            with app.app_context():
-                db.create_all()
-        except:
-            pass
         yield client
 
-def test_simples_de_tudo(client):
+def test_app_structure_and_rum_injection(client):
     """
-    Teste Básico: O site abre e tem a palavra 'Loja'?
+    Teste Genérico de Sanidade (Smoke Test).
+    Valida se a aplicação responde e se os componentes CRÍTICOS do RUM estão presentes,
+    independentemente da versão ou estratégia (Logs vs Events).
     """
+    # 1. Faz a requisição
     response = client.get('/')
-    
-    # Tem que dar 200 (OK)
+
+    # Decodifica os bytes para string para facilitar a busca
+    html = response.data.decode('utf-8')
+
+    # ------------------------------------------------------------------
+    # CHECK 1: DISPONIBILIDADE
+    # O site tem que carregar.
+    # ------------------------------------------------------------------
     assert response.status_code == 200
-    
-    # Verifica se existe a palavra "Loja" no HTML
-    assert "Loja" in response.data.decode('utf-8')
+    assert "<!DOCTYPE html>" in html
+
+    # ------------------------------------------------------------------
+    # CHECK 2: PRESENÇA DO OPENTELEMETRY
+    # Não importa a versão, tem que ter imports do '@opentelemetry'.
+    # Isso garante que o bloco <script> não foi apagado sem querer.
+    # ------------------------------------------------------------------
+    assert "@opentelemetry/sdk-trace-web" in html
+    assert "@opentelemetry/resources" in html
+
+    # ------------------------------------------------------------------
+    # CHECK 3: CONFIGURAÇÃO DO SERVIDOR (COLLECTOR)
+    # Verifica se o endpoint do SigNoz está configurado no código.
+    # O teste passa se encontrar o domínio do seu collector.
+    # ------------------------------------------------------------------
+    assert "otel-collector.129-213-28-76.sslip.io" in html
+
+    # ------------------------------------------------------------------
+    # CHECK 4: IDENTIDADE DO SERVIÇO
+    # Garante que o nome do serviço está correto (importante para achar no SigNoz)
+    # ------------------------------------------------------------------
+    assert "flask-frontend-rum" in html
+
+    print("\n✅ O App está no ar e o script RUM está injetado corretamente.")
