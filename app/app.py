@@ -4,38 +4,31 @@ import logging
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 
-# --- OPENTELEMETRY ---
-# IMPORTANTE: Nao importamos mais os Exporters nem Providers.
-# Deixamos a Auto-Instrumentacao do SigNoz (Annotation) cuidar disso.
+# --- OPENTELEMETRY (Backend) ---
+# Usamos apenas a API para pegar o tracer. 
+# A instrumentação pesada (Exporters) vem do Agente do SigNoz (Annotation do K8s).
 from opentelemetry import trace
 
-# Apenas pegamos o tracer global que o SigNoz ja configurou para nos
+# Pega o tracer global configurado pelo SigNoz
 tracer = trace.get_tracer(__name__)
 
 app = Flask(__name__)
 
-# NOTA: Nao precisamos chamar FlaskInstrumentation().instrument()
-# A Auto-Instrumentacao do SigNoz faz isso sozinha quando o Pod sobe.
-
 # --- Configuração do Banco de Dados ---
-# Lendo Secrets do K8s
 db_user = os.getenv("DB_USER", "root")
 db_pass = os.getenv("DB_PASS", "senha")
 db_host = os.getenv("DB_HOST", "127.0.0.1")
 db_name = os.getenv("DB_NAME", "loja_rum")
 
-# Conexao Segura
 app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{db_user}:{db_pass}@{db_host}/{db_name}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Configurações para evitar queda de conexão pelo Firewall da GCP
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_recycle': 280,
     'pool_pre_ping': True
 }
 
 db = SQLAlchemy(app)
-
-# NOTA: Nao precisamos chamar SQLAlchemyInstrumentation().instrument()
-# O agente do SigNoz detecta o SQLAlchemy e instrumenta sozinho.
 
 # --- Modelo ---
 class Pedido(db.Model):
@@ -45,15 +38,15 @@ class Pedido(db.Model):
     valor = db.Column(db.Float)
     timestamp_epoch = db.Column(db.Float)
 
-# Cria tabelas (resiliencia)
+# Inicializa DB
 with app.app_context():
     try:
         db.create_all()
-        print(f"INFO: DB Conectado em {db_host}")
+        print(f"INFO: Conectado ao MySQL em {db_host}")
     except Exception as e:
-        print(f"ERRO: DB inacessivel: {e}")
+        print(f"ERRO: Falha ao conectar DB: {e}")
 
-# --- FRONTEND RUM (Mantido igual, pois roda no navegador) ---
+# --- FRONTEND RUM (CORRIGIDO) ---
 RUM_HTML = """
 <!DOCTYPE html>
 <html lang="pt-br">
@@ -61,9 +54,10 @@ RUM_HTML = """
     <meta charset="UTF-8">
     <title>Loja SigNoz RUM</title>
     <link rel="preconnect" href="https://esm.sh" crossorigin>
+    
     <script type="module">
-      // Frontend RUM continua independente
-      import { propagation, context } from 'https://esm.sh/@opentelemetry/api@1.7.0';
+      // 1. IMPORT CORRIGIDO: Adicionamos 'trace' aqui
+      import { propagation, context, trace } from 'https://esm.sh/@opentelemetry/api@1.7.0';
       import { WebTracerProvider } from 'https://esm.sh/@opentelemetry/sdk-trace-web@1.30.1';
       import { BatchSpanProcessor } from 'https://esm.sh/@opentelemetry/sdk-trace-base@1.30.1';
       import { Resource } from 'https://esm.sh/@opentelemetry/resources@1.30.1';
@@ -73,33 +67,71 @@ RUM_HTML = """
       import { W3CTraceContextPropagator } from 'https://esm.sh/@opentelemetry/core@1.30.1';
 
       try {
+          console.log("Iniciando RUM...");
           const collectorUrl = 'https://otel-collector.129-213-28-76.sslip.io/v1/traces';
+          
           const resource = new Resource({
               [SemanticResourceAttributes.SERVICE_NAME]: 'flask-frontend-rum',
           });
+
           const provider = new WebTracerProvider({ resource });
+          
+          // Batching para performance
           provider.addSpanProcessor(new BatchSpanProcessor(new OTLPTraceExporter({ url: collectorUrl })));
+          
+          // Importante: W3C Propagator conecta o Front ao Back
           provider.register({ propagator: new W3CTraceContextPropagator() });
 
-          new FetchInstrumentation({ propagateTraceHeaderCorsUrls: [/.+/] }).setTracerProvider(provider);
-          
-          const tracer = provider.getTracer('frontend');
+          // Instrumenta o Fetch (AJAX)
+          const fetchInstr = new FetchInstrumentation({
+              propagateTraceHeaderCorsUrls: [/.+/],
+          });
+          fetchInstr.setTracerProvider(provider);
+
+          const tracer = provider.getTracer('frontend-loja');
+
+          // Função Global de Ação
           window.realAction = (actionType) => {
+              console.log(`Click: ${actionType}`);
+              
               const span = tracer.startSpan(`click_${actionType.toLowerCase()}`);
-              context.with(propagation.setSpan(context.active(), span), () => {
-                  fetch(actionType === 'COMPRAR' ? '/checkout' : '/simular_erro', { method: 'POST' })
+              
+              // 2. CORREÇÃO CRÍTICA: Usar trace.setSpan em vez de propagation.setSpan
+              context.with(trace.setSpan(context.active(), span), () => {
+                  
+                  const endpoint = actionType === 'COMPRAR' ? '/checkout' : '/simular_erro';
+                  
+                  // O fetch vai herdar o contexto automaticamente por causa do context.with
+                  fetch(endpoint, { method: 'POST' })
                     .then(r => r.json())
-                    .then(d => { span.end(); alert(d.status); })
-                    .catch(e => { span.recordException(e); span.end(); });
+                    .then(data => {
+                        console.log("Sucesso:", data);
+                        span.setStatus({ code: 1 }); // OK
+                        alert("Retorno: " + (data.status || 'OK'));
+                    })
+                    .catch(e => {
+                        console.error("Erro:", e);
+                        span.recordException(e);
+                        span.setStatus({ code: 2, message: e.message }); // ERROR
+                        alert("Erro! Veja o console.");
+                    })
+                    .finally(() => {
+                        span.end();
+                    });
               });
           };
-      } catch (e) { console.error(e); }
+          console.log("RUM Pronto!");
+
+      } catch (e) { console.error("Erro RUM:", e); }
     </script>
 </head>
 <body style="font-family: sans-serif; text-align: center; padding: 50px;">
-    <h1>🛒 Loja Integrada SigNoz</h1>
-    <button style="padding:15px; background:blue; color:white;" onclick="window.realAction('COMPRAR')">Comprar</button>
-    <button style="padding:15px; background:red; color:white;" onclick="window.realAction('ERROR')">Erro</button>
+    <h1>🛒 Loja Integrada (OCI + GCP)</h1>
+    <p>Monitoramento: Frontend -> Backend -> DB</p>
+    <div style="margin-top:20px;">
+        <button style="padding:15px 30px; background:blue; color:white; cursor:pointer;" onclick="window.realAction('COMPRAR')">🛍️ Comprar</button>
+        <button style="padding:15px 30px; background:red; color:white; cursor:pointer; margin-left:10px;" onclick="window.realAction('ERROR')">💣 Erro</button>
+    </div>
 </body>
 </html>
 """
@@ -110,36 +142,35 @@ def home():
 
 @app.route('/checkout', methods=['POST'])
 def checkout():
-    # AQUI ESTA O SEGREDO:
-    # O SigNoz ja iniciou um span 'HTTP POST /checkout'.
-    # Nos criamos um FILHO dele manualmente.
-    with tracer.start_as_current_span("processar_logica_negocio"):
+    # O SigNoz já criou o span pai. Criamos um span manual filho aqui.
+    with tracer.start_as_current_span("logica_negocio_backend"):
         try:
-            time.sleep(0.05) # Span Manual (50ms)
+            time.sleep(0.05) # Simula processamento
             
-            # O Agente do SigNoz vai pegar essa chamada ao DB automaticamente
-            # e criar o span "INSERT INTO..." como filho deste bloco.
-            novo = Pedido(produto="Notebook", status="PAGO", valor=3500.0, timestamp_epoch=time.time())
+            # Gravando no MySQL GCP (Gera span automático do SQLAlchemy)
+            novo = Pedido(produto="Gamer PC", status="PAGO", valor=5000.0, timestamp_epoch=time.time())
             db.session.add(novo)
             db.session.commit()
             
             return jsonify({"status": "compra_sucesso", "id": novo.id})
         except Exception as e:
             db.session.rollback()
+            # Registra erro no span atual
+            trace.get_current_span().record_exception(e)
             return jsonify({"status": "erro", "msg": str(e)}), 500
 
 @app.route('/simular_erro', methods=['POST'])
 def simular_erro():
-    with tracer.start_as_current_span("logica_falha"):
+    with tracer.start_as_current_span("logica_falha_backend"):
         try:
-            # Tenta gravar
-            falha = Pedido(produto="Erro", status="FALHA", valor=0.0, timestamp_epoch=time.time())
+            falha = Pedido(produto="Bug", status="ERRO", valor=0.0, timestamp_epoch=time.time())
             db.session.add(falha)
             db.session.commit()
-            raise ValueError("Erro Python Forcado!")
+            
+            raise ValueError("Simulacao de Crash no Python!")
         except Exception as e:
-            # O SigNoz pega a excecao automatica do Flask, mas registrar aqui ajuda no contexto
             trace.get_current_span().record_exception(e)
+            trace.get_current_span().set_status(trace.Status(trace.StatusCode.ERROR))
             return jsonify({"status": "erro_capturado", "msg": str(e)}), 500
 
 if __name__ == '__main__':

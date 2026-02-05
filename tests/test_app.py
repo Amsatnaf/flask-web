@@ -2,44 +2,43 @@ import sys
 import pytest
 from unittest.mock import MagicMock
 
-# --- TRUQUE PARA O CI/CD ---
-# Finge que o OpenTelemetry existe para o teste não quebrar na importação.
-# Isso blinda o teste contra erros de dependência.
-mock_otel = MagicMock()
-sys.modules["opentelemetry"] = mock_otel
-sys.modules["opentelemetry.trace"] = mock_otel
+# --- MOCK DA SALVAÇÃO ---
+# Engana o Python se faltar lib do OTel para o teste não quebrar no import
+mock = MagicMock()
+sys.modules["opentelemetry"] = mock
+sys.modules["opentelemetry.trace"] = mock
+sys.modules["opentelemetry.exporter.otlp.proto.http.trace_exporter"] = mock
+# ------------------------
 
-# Agora importamos o app (que vai usar o mock acima)
-from app import app
+# CORREÇÃO DO ERRO: Importando do caminho completo
+# "from app.app" pega o arquivo app.py dentro da pasta app
+# "import app" pega a variável 'app = Flask(__name__)' dentro do arquivo
+from app.app import app
 
 @pytest.fixture
 def client():
     app.config['TESTING'] = True
-    # Usa banco na memória RAM para não precisar conectar na GCP/Google
+    # Banco na memória para não depender de nada externo
     app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///:memory:"
     
     with app.test_client() as client:
-        with app.app_context():
-            # Tenta criar o banco fake, se der erro ignora (foco é testar a rota)
-            try:
-                from app import db
+        # Tentativa silenciosa de criar o banco. Se falhar, segue o baile.
+        try:
+            from app.app import db
+            with app.app_context():
                 db.create_all()
-            except:
-                pass
+        except:
+            pass
         yield client
 
-def test_home_page(client):
+def test_simples_de_tudo(client):
     """
-    Teste simples: A página inicial responde com sucesso (200)?
+    Teste Básico: O site abre e tem a palavra 'Loja'?
     """
     response = client.get('/')
+    
+    # Tem que dar 200 (OK)
     assert response.status_code == 200
-    # Verifica se carregou o HTML
-    assert "<!DOCTYPE html>" in response.data.decode('utf-8')
-
-def test_sanity():
-    """
-    Teste de sanidade: 1 + 1 é igual a 2?
-    Garante que o Pytest está rodando.
-    """
-    assert 1 + 1 == 2
+    
+    # Verifica se existe a palavra "Loja" no HTML
+    assert "Loja" in response.data.decode('utf-8')
