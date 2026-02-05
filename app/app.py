@@ -93,7 +93,7 @@ def checkout():
     with tracer.start_as_current_span("teste_insercao_banco"):
         try:
             # O SQLAlchemy instrumentado pelo SigNoz vai criar o span do INSERT automaticamente
-            novo = Pedido(produto="Teste Conexao", status="OK", valor=1.0, timestamp_epoch=time.time())
+            novo = Pedido(produto="Teste de Conexao", status="OK", valor=1.0, timestamp_epoch=time.time())
             db.session.add(novo)
             db.session.commit()
             return jsonify({"status": "sucesso_total", "id": novo.id})
