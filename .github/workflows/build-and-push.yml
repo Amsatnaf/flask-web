@@ -35,7 +35,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: Amsatnaf
+          username: ${{ github.actor }} # Melhor usar actor do que hardcoded 'Amsatnaf'
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
@@ -44,31 +44,37 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
-          # CORREÇÃO 1: Adicionado "OR teste" no final. Agora a imagem sobe pro registro!
-          push: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/rolling' || ggithub.ref == 'refs/heads/migracao-grafana' || github.ref == 'refs/heads/teste') }}
-          
+          # CORREÇÃO: Simplifiquei a lógica. Se não for Pull Request, ele faz o push.
+          push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ github.ref == 'refs/heads/main' && 'ghcr.io/amsatnaf/flask-web:latest' || '' }}
             ghcr.io/amsatnaf/flask-web:${{ github.sha }}
 
       - name: Update Kubernetes Manifest
-        # CORREÇÃO 2: Adicionado "OR teste" aqui também para atualizar o YAML automaticamente
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/teste' || github.ref == 'refs/heads/migracao-grafana')
+        # Executa se for push (não PR) nas branches permitidas
+        if: github.event_name == 'push'
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
 
-          # ATENÇÃO: Confirme se o seu deployment.yaml está mesmo dentro da pasta "prod/"
-          # Se estiver na raiz, mude para FILE_PATH="deployment.yaml"
-          FILE_PATH="prod/deployment.yaml"
+          # --- ATENÇÃO AQUI ---
+          # Se o seu deployment.yaml estiver na raiz, mude para: FILE_PATH="deployment.yaml"
+          # Se estiver na pasta prod, mantenha: FILE_PATH="prod/deployment.yaml"
+          FILE_PATH="deployment.yaml" 
           
-          # Se o arquivo não existir na branch teste (ex: se estiver na raiz), o script não falha, mas avisa.
+          echo "Verificando arquivo: $FILE_PATH"
+
           if [ -f "$FILE_PATH" ]; then
+            echo "Atualizando tag da imagem para: ${{ github.sha }}"
             sed -i "s|image: ghcr.io/amsatnaf/flask-web:.*|image: ghcr.io/amsatnaf/flask-web:${{ github.sha }}|g" $FILE_PATH
-            
+
             git add $FILE_PATH
-            git commit -m "chore(ci): update image tag to ${{ github.sha }}"
+            # Commit seguro: só commita se houver mudança
+            git diff-index --quiet HEAD || git commit -m "chore(ci): update image tag to ${{ github.sha }}"
             git push
           else
-            echo "Arquivo $FILE_PATH não encontrado, pulando atualização de manifesto."
+            echo "⚠️ ARQUIVO $FILE_PATH NÃO ENCONTRADO!"
+            echo "Verifique se o caminho está correto no workflow."
+            ls -R # Lista arquivos para ajudar no debug
+            exit 1 # Falha o job para você ver o erro
           fi
