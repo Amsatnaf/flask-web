@@ -7,6 +7,4 @@ resources:
   - deployment.yaml
   - service.yaml
   - ingress.yaml
-  - servicemonitor.yaml
   - hpa.yaml
-  - alert-rules.yaml

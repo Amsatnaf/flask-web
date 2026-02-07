@@ -42,13 +42,13 @@ with app.app_context():
     except Exception as e:
         logger.error(f"❌ FALHA AO CONECTAR NO BANCO: {e}")
 
-# --- Frontend RUM (ATUALIZADO PARA GRAFANA CLOUD) ---
+# --- Frontend RUM (AGORA COM GRAFANA FARO) ---
 RUM_HTML = """
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Loja RUM - Grafana Cloud</title>
+    <title>Loja RUM - Grafana Faro</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; text-align: center; background-color: #f4f4f9; padding: 50px; }
         .card { background: white; max-width: 400px; margin: auto; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
@@ -61,98 +61,64 @@ RUM_HTML = """
         #status { margin-top: 20px; font-weight: bold; color: #555; }
     </style>
     
-    <script type="module">
-      import { context, trace, SpanStatusCode } from 'https://esm.sh/@opentelemetry/api@1.7.0';
-      import { WebTracerProvider } from 'https://esm.sh/@opentelemetry/sdk-trace-web@1.30.1';
-      import { BatchSpanProcessor } from 'https://esm.sh/@opentelemetry/sdk-trace-base@1.30.1';
-      import { Resource } from 'https://esm.sh/@opentelemetry/resources@1.30.1';
-      import { SemanticResourceAttributes } from 'https://esm.sh/@opentelemetry/semantic-conventions@1.28.0';
-      import { OTLPTraceExporter } from 'https://esm.sh/@opentelemetry/exporter-trace-otlp-http@0.57.2';
-      import { FetchInstrumentation } from 'https://esm.sh/@opentelemetry/instrumentation-fetch@0.34.0';
-      import { W3CTraceContextPropagator } from 'https://esm.sh/@opentelemetry/core@1.30.1';
+    <script src="https://unpkg.com/@grafana/faro-web-sdk@^1.0.0/dist/bundle/faro-web-sdk.iife.js"></script>
 
-      // --- CONFIGURAÇÃO MANUAL GRAFANA CLOUD (RUM) ---
-      // IMPORTANTE: Isso envia o trace do navegador do cliente direto para a nuvem
-      const tempoUser = '1471033'; 
-      const tempoToken = '62d28f58-5cc3-4f65-8452-fd4f5092e5e9'; 
-      const tempoUrl = 'https://tempo-prod-17-prod-sa-east-1.grafana.net/tempo/v1/traces';
-
-      // Criação do Header de Autenticação Basic Auth
-      const authHeader = 'Basic ' + btoa(tempoUser + ':' + tempoToken);
-
-      const provider = new WebTracerProvider({
-          resource: new Resource({ 
-            [SemanticResourceAttributes.SERVICE_NAME]: 'flask-frontend-rum',
-            [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: 'producao'
-          })
-      });
-      
-      const exporter = new OTLPTraceExporter({ 
-          url: tempoUrl,
-          headers: {
-              'Authorization': authHeader
-          }
+    <script>
+      // Inicialização do Faro com a URL que você pegou no painel
+      var faro = GrafanaFaroWebSdk.initializeFaro({
+        url: 'https://faro-collector-prod-sa-east-1.grafana.net/collect/e1a2f88c30e6e51ce17e7027fda40ae4',
+        app: {
+          name: 'loja-frontend',
+          version: '1.0.0',
+          environment: 'production'
+        },
+        instrumentations: [
+          // Captura erros de console, cliques, performance e rede automaticamente
+          new GrafanaFaroWebSdk.ConsoleInstrumentation(),
+          new GrafanaFaroWebSdk.ErrorsInstrumentation(),
+          new GrafanaFaroWebSdk.WebTracingInstrumentation(),
+          new GrafanaFaroWebSdk.SessionInstrumentation()
+        ]
       });
 
-      provider.addSpanProcessor(new BatchSpanProcessor(exporter));
-      
-      provider.register({ propagator: new W3CTraceContextPropagator() });
-      new FetchInstrumentation({ propagateTraceHeaderCorsUrls: [/.+/] }).setTracerProvider(provider);
-      
-      const tracer = provider.getTracer('loja-frontend');
-
-      // Trace de Carregamento da Página
-      window.addEventListener('load', () => {
-          const pageLoadSpan = tracer.startSpan('page_load');
-          setTimeout(() => { pageLoadSpan.end(); }, 100);
-      });
-
+      // Função auxiliar para os botões da página
       window.acao = (tipo) => {
-          const span = tracer.startSpan('user_interaction', {
-              attributes: { 
-                  'action': tipo === 'comprar' ? 'compra' : 'erro',
-                  'app.component': 'botao',
-                  'target_system': 'grafana_cloud'
-              }
-          });
-          
           const endpoint = tipo === 'comprar' ? '/checkout' : '/simular_erro';
           console.info(`🚀 [AÇÃO] Usuário: ${tipo.toUpperCase()}`);
           
           document.getElementById('status').innerText = "Processando...";
 
-          context.with(trace.setSpan(context.active(), span), () => {
-              fetch(endpoint, { method: 'POST' })
-                .then(r => r.json().then(data => ({status: r.status, body: data})))
-                .then(res => { 
-                    if(res.status === 200) {
-                        document.getElementById('status').innerText = `✅ Sucesso! ID: ${res.body.id}`;
-                        document.getElementById('status').style.color = "green";
-                        span.setStatus({ code: SpanStatusCode.OK });
-                    } else {
-                        document.getElementById('status').innerText = `❌ Erro: ${res.body.msg}`;
-                        document.getElementById('status').style.color = "red";
-                        span.setStatus({ code: SpanStatusCode.ERROR, message: res.body.msg });
-                    }
-                    span.end(); 
-                })
-                .catch(e => { 
-                    console.error("🔥 Erro JS:", e);
-                    document.getElementById('status').innerText = "Erro Crítico"; 
-                    span.recordException(e);
-                    span.setStatus({ code: SpanStatusCode.ERROR });
-                    span.end(); 
-                });
-          });
+          // Envia um evento customizado para o Grafana (User Interaction)
+          faro.api.pushEvent('click_botao', { acao: tipo });
+
+          fetch(endpoint, { method: 'POST' })
+            .then(r => r.json().then(data => ({status: r.status, body: data})))
+            .then(res => { 
+                if(res.status === 200) {
+                    document.getElementById('status').innerText = `✅ Sucesso! ID: ${res.body.id}`;
+                    document.getElementById('status').style.color = "green";
+                } else {
+                    document.getElementById('status').innerText = `❌ Erro: ${res.body.msg}`;
+                    document.getElementById('status').style.color = "red";
+                    // Envia o erro explicitamente para o Grafana Faro
+                    faro.api.pushError(new Error(res.body.msg));
+                }
+            })
+            .catch(e => { 
+                console.error("🔥 Erro JS:", e);
+                document.getElementById('status').innerText = "Erro Crítico";
+                // Envia exceções de rede/js para o Grafana Faro
+                faro.api.pushError(e);
+            });
       };
     </script>
 </head>
 <body>
     <div class="card">
-        <h1>🛍️ Loja RUM.</h1>
-        <p>Monitorado por Grafana Cloud</p>
-        <button class="btn-buy" onclick="window.acao('comprar')">COMPRAR (Gera Trace)</button>
-        <button class="btn-error" onclick="window.acao('erro')">GERAR ERRO (Gera Alerta)</button>
+        <h1>🛍️ Loja RUM</h1>
+        <p>Monitorado por Grafana Faro</p>
+        <button class="btn-buy" onclick="window.acao('comprar')">COMPRAR</button>
+        <button class="btn-error" onclick="window.acao('erro')">GERAR ERRO</button>
         <div id="status">Aguardando ação...</div>
     </div>
 </body>
