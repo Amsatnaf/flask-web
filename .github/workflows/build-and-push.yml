@@ -35,7 +35,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }} # Melhor usar actor do que hardcoded 'Amsatnaf'
+          username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
@@ -44,37 +44,37 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
-          # CORREÇÃO: Simplifiquei a lógica. Se não for Pull Request, ele faz o push.
-          push: ${{ github.event_name != 'pull_request' }}
+          # Pusha a imagem se for um evento de PUSH (não PR)
+          push: ${{ github.event_name == 'push' }}
           tags: |
             ${{ github.ref == 'refs/heads/main' && 'ghcr.io/amsatnaf/flask-web:latest' || '' }}
             ghcr.io/amsatnaf/flask-web:${{ github.sha }}
 
       - name: Update Kubernetes Manifest
-        # Executa se for push (não PR) nas branches permitidas
+        # Executa apenas se for push nas branches permitidas
         if: github.event_name == 'push'
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
 
-          # --- ATENÇÃO AQUI ---
-          # Se o seu deployment.yaml estiver na raiz, mude para: FILE_PATH="deployment.yaml"
-          # Se estiver na pasta prod, mantenha: FILE_PATH="prod/deployment.yaml"
-          FILE_PATH="deployment.yaml" 
+          # --- CAMINHO CORRIGIDO ---
+          # Aponta para o arquivo dentro da pasta 'prod/'
+          FILE_PATH="prod/deployment.yaml"
           
           echo "Verificando arquivo: $FILE_PATH"
 
           if [ -f "$FILE_PATH" ]; then
-            echo "Atualizando tag da imagem para: ${{ github.sha }}"
+            # Atualiza a imagem com a tag do commit atual (SHA)
             sed -i "s|image: ghcr.io/amsatnaf/flask-web:.*|image: ghcr.io/amsatnaf/flask-web:${{ github.sha }}|g" $FILE_PATH
-
+            
+            # Adiciona e comita a mudança
             git add $FILE_PATH
-            # Commit seguro: só commita se houver mudança
+            
+            # Só faz commit se houver mudança real
             git diff-index --quiet HEAD || git commit -m "chore(ci): update image tag to ${{ github.sha }}"
             git push
           else
-            echo "⚠️ ARQUIVO $FILE_PATH NÃO ENCONTRADO!"
-            echo "Verifique se o caminho está correto no workflow."
-            ls -R # Lista arquivos para ajudar no debug
-            exit 1 # Falha o job para você ver o erro
+            echo "❌ ERRO CRÍTICO: Arquivo $FILE_PATH não encontrado!"
+            ls -R
+            exit 1
           fi
