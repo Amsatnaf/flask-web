@@ -7,6 +7,11 @@ metadata:
     app: flask-web
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: flask-web
@@ -15,26 +20,59 @@ spec:
       labels:
         app: flask-web
       annotations:
-        # --- MUDANÇA 1: Comentamos o SigNoz para evitar conflito ---
+        # ---------------------------------------------------------
+        # MUDANÇA 1: Comentamos o SigNoz (O "Pause" na injeção antiga)
         # instrumentation.opentelemetry.io/inject-python: "signoz/signoz-instrumentation"
+        # ---------------------------------------------------------
     spec:
       containers:
         - name: flask-web
-          # --- MUDANÇA 2: Usamos a imagem nova com o JS do Grafana ---
-          image: ghcr.io/amsatnaf/flask-web:v-grafana-01
+          # ---------------------------------------------------------
+          # MUDANÇA 2: Mantenha a imagem que o seu GitHub Actions vai substituir!
+          # O script 'sed' vai procurar por "ghcr.io/amsatnaf/flask-web:..." e trocar pelo SHA.
+          # Pode deixar a última tag que estava lá, o robô vai atualizar sozinho.
+          image: ghcr.io/amsatnaf/flask-web:latest 
+          # ---------------------------------------------------------
           imagePullPolicy: Always
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
           ports:
             - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          # ---------------------------------------------------------
+          # MUDANÇA 3: Variáveis de Ambiente para o GRAFANA ALLOY
+          # ---------------------------------------------------------
           env:
-          # --- MUDANÇA 3: Variáveis apontando para o Alloy (Agente Grafana) ---
+          # Aponta para o serviço do Alloy (Agente) dentro do cluster
           - name: OTEL_EXPORTER_OTLP_ENDPOINT
             value: "http://grafana-k8s-monitoring-alloy.monitoring.svc.cluster.local:4317"
+          
+          # Garante o protocolo gRPC (mais rápido)
           - name: OTEL_EXPORTER_OTLP_PROTOCOL
             value: "grpc"
+
+          # Nome do Serviço no Grafana Cloud
           - name: OTEL_SERVICE_NAME
             value: "flask-web-loja"
-            
-          # --- Variáveis do Banco (Mantidas) ---
+
+          # --- Variáveis do Banco (Mantidas Iguais) ---
           - name: DB_HOST
             value: "34.44.72.27"
           - name: DB_NAME
