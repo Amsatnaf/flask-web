@@ -149,7 +149,7 @@ RUM_HTML = """
 </head>
 <body>
     <div class="card">
-        <h1>🛍️ Loja RUM</h1>
+        <h1>🛍️ Loja RUM.</h1>
         <p>Monitorado por Grafana Cloud</p>
         <button class="btn-buy" onclick="window.acao('comprar')">COMPRAR (Gera Trace)</button>
         <button class="btn-error" onclick="window.acao('erro')">GERAR ERRO (Gera Alerta)</button>
