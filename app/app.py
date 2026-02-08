@@ -44,13 +44,12 @@ with app.app_context():
         logger.error(f"❌ FALHA AO CONECTAR NO BANCO: {e}")
 
 # --- Frontend RUM (HTML + JS Faro) ---
-# DICA: Substitua a URL do 'url' abaixo pela sua URL do Faro Collector se mudar
 RUM_HTML = """
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Loja RUM - Monitoramento Completo</title>
+    <title>Loja RUM - Monitoramento V2</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; text-align: center; background-color: #f4f4f9; padding: 50px; }
         .card { background: white; max-width: 400px; margin: auto; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
@@ -68,83 +67,89 @@ RUM_HTML = """
     <script src="https://unpkg.com/@grafana/faro-web-tracing@^1.4.0/dist/bundle/faro-web-tracing.iife.js"></script>
 
     <script>
-      // --- INICIALIZAÇÃO DO FARO ---
+      // --- 1. INICIALIZAÇÃO DO FARO ---
       var faro = GrafanaFaroWebSdk.initializeFaro({
-        url: 'https://faro-collector-prod-sa-east-1.grafana.net/collect/e1a2f88c30e6e51ce17e7027fda40ae4', // SUA URL AQUI
+        url: 'https://faro-collector-prod-sa-east-1.grafana.net/collect/e1a2f88c30e6e51ce17e7027fda40ae4', 
         app: {
-          name: 'loja-frontend-prod', // Nome padronizado
-          version: '1.0.0',
+          name: 'loja-frontend-prod',
+          version: '3.0.0', // Versão nova para limpar o cache visual
           environment: 'production'
         },
         instrumentations: [
-          // Instrumentações Padrão
           new GrafanaFaroWebSdk.ConsoleInstrumentation(),
           new GrafanaFaroWebSdk.ErrorsInstrumentation(),
           new GrafanaFaroWebSdk.SessionInstrumentation(),
-          
-          // --- CORREÇÃO 1: User Actions Ativadas ---
+          // Instrumentação de Ações do Usuário
           new GrafanaFaroWebSdk.UserActionInstrumentation(),
-
-          // --- CORREÇÃO 2: Tracing Conectado ---
+          // Instrumentação de Tracing (Liga o Front ao Back)
           new GrafanaFaroWebTracing.TracingInstrumentation({
-            propagationKey: 'traceparent', // Padrão W3C para conectar com o Python
+            propagationKey: 'traceparent', 
             cors: true 
           })
         ]
       });
 
-      // Função para lidar com os cliques
+      // --- 2. LÓGICA DO CLIQUE (MANUAL + AUTOMÁTICO) ---
       window.acao = (tipo) => {
           const endpoint = tipo === 'comprar' ? '/checkout' : '/simular_erro';
-          console.info(`🚀 [AÇÃO] Usuário iniciou: ${tipo.toUpperCase()}`);
+          const actionName = tipo === 'comprar' ? 'click_comprar' : 'click_gerar_erro';
+          
+          console.info(`🚀 [AÇÃO] Usuário iniciou: ${actionName}`);
+          
+          // --- FORÇANDO O ENVIO PARA O GRAFANA ---
+          // Isso garante que apareça no painel de Eventos/Logs mesmo se o "User Action" falhar
+          faro.api.pushEvent(actionName, { categoria: 'botao_interface' });
           
           document.getElementById('status').innerText = "Processando...";
           document.getElementById('status').style.color = "orange";
 
-          // O fetch gera automaticamente o span de rede
           fetch(endpoint, { method: 'POST' })
             .then(async (response) => {
                 const data = await response.json();
                 
                 if (response.ok) {
-                    document.getElementById('status').innerText = `✅ Sucesso! ID Pedido: ${data.id}`;
+                    document.getElementById('status').innerText = `✅ Sucesso! ID: ${data.id}`;
                     document.getElementById('status').style.color = "green";
                     
-                    // Envia evento de sucesso customizado
-                    faro.api.pushEvent('compra_sucesso', { valor: '4500.00', pedido_id: data.id });
+                    // Evento de Sucesso de Negócio
+                    faro.api.pushEvent('compra_realizada', { 
+                        pedido_id: String(data.id),
+                        valor: '4500.00'
+                    });
                 } else {
-                    throw new Error(data.msg || "Erro desconhecido no servidor");
+                    throw new Error(data.msg || "Erro desconhecido");
                 }
             })
             .catch(error => { 
-                console.error("🔥 Erro capturado no Frontend:", error);
-                
+                console.error("🔥 Erro capturado:", error);
                 document.getElementById('status').innerText = `❌ Falha: ${error.message}`;
                 document.getElementById('status').style.color = "red";
                 
-                // Envia o erro explicitamente para o Grafana
-                faro.api.pushError(error, { type: 'network_error', context: 'checkout_flow' });
+                // Envia o erro explicitamente
+                faro.api.pushError(error, { context: actionName });
             });
       };
     </script>
 </head>
 <body>
     <div class="card">
-        <h1>🛍️ Loja RUM</h1>
-        <p>Monitoramento Full-Stack</p>
+        <h1>🛍️ Loja RUM v3</h1>
+        <p>Monitoramento Avançado</p>
         
         <button class="btn-buy" 
                 onclick="window.acao('comprar')" 
-                data-faro-user-action-name="clique_comprar"> COMPRAR (PlayStation 5)
+                data-faro-user-action-name="click_comprar">
+            COMPRAR (PlayStation 5)
         </button>
         
         <button class="btn-error" 
                 onclick="window.acao('erro')" 
-                data-faro-user-action-name="clique_gerar_erro"> GERAR ERRO
+                data-faro-user-action-name="click_gerar_erro">
+            GERAR ERRO
         </button>
         
         <div id="status">Aguardando ação...</div>
-        <div class="info">Abra o Console (F12) para ver os logs do Faro</div>
+        <div class="info">Dados enviados para Grafana Cloud</div>
     </div>
 </body>
 </html>
@@ -156,37 +161,25 @@ def home():
 
 @app.route('/checkout', methods=['POST'])
 def checkout():
-    # Inicia o Span manual para detalhar o trace
+    # Inicia Span no Backend
     tracer = trace.get_tracer(__name__)
     
-    # Atributos ricos para aparecer no Trace Waterfall
-    span_attributes = {
-        "http.method": "POST", 
-        "db.system": "mysql",
-        "app.feature": "checkout",
-        "user.tier": "gold" # Exemplo de dado de negócio
-    }
-    
-    with tracer.start_as_current_span("processar_compra_backend", attributes=span_attributes) as span:
+    with tracer.start_as_current_span("processar_compra_backend", attributes={"app.feature": "checkout"}) as span:
         try:
-            logger.info("💳 Iniciando processamento de pagamento...")
+            logger.info("💳 Iniciando pagamento...")
             
-            # Simulando um "delay" de banco de dados para ficar visível no gráfico
-            # time.sleep(0.1) 
-            
+            # Simulando processamento
             novo = Pedido(produto="PlayStation 5", status="PAGO", valor=4500.00, timestamp_epoch=time.time())
             db.session.add(novo)
             db.session.commit()
             
-            logger.info(f"✅ Pedido {novo.id} salvo com sucesso!")
-            
-            # Adiciona o ID do pedido no Trace
+            logger.info(f"✅ Pedido {novo.id} salvo!")
             span.set_attribute("app.order_id", novo.id)
             
             return jsonify({"status": "sucesso", "id": novo.id})
             
         except Exception as e:
-            logger.error(f"❌ Erro ao salvar pedido: {e}")
+            logger.error(f"❌ Erro: {e}")
             span.record_exception(e)
             span.set_status(Status(StatusCode.ERROR))
             return jsonify({"status": "erro", "msg": str(e)}), 500
@@ -195,16 +188,15 @@ def checkout():
 def simular_erro():
     tracer = trace.get_tracer(__name__)
     
-    with tracer.start_as_current_span("gateway_pagamento_falha") as span:
+    with tracer.start_as_current_span("simulacao_falha_backend") as span:
         try:
-            logger.error("⚠️ Simulando falha crítica no Gateway...")
-            # Forçando um erro
-            raise Exception("Timeout: Gateway de Pagamento não respondeu em 3000ms")
+            logger.error("⚠️ Simulando falha crítica...")
+            raise Exception("Gateway Timeout (Erro Simulado)")
         except Exception as e:
             span.record_exception(e)
             span.set_status(Status(StatusCode.ERROR))
             return jsonify({"status": "erro_simulado", "msg": str(e)}), 500
 
 if __name__ == '__main__':
-    # O ideal é rodar via 'opentelemetry-instrument', mas se rodar direto:
+    # A instrumentação real é feita pelo comando 'opentelemetry-instrument' no Dockerfile
     app.run(host='0.0.0.0', port=8080)
