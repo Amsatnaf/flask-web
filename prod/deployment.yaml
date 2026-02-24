@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
         - name: flask-web
-          image: ghcr.io/amsatnaf/flask-web:7c34454f40478e08c5cb479821b3611bdcef63b9
+          image: ghcr.io/amsatnaf/flask-web:5cb83376f5e85e207ef2059da9bd5927c57d14ac
           imagePullPolicy: Always
           resources:
             requests:
